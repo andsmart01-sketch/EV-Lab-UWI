@@ -1,6 +1,7 @@
 import dash
 from dash import dcc, html, Input, Output
 from data_loader import load_fuel_prices, get_latest_prices
+import plotly.express as px
 
 app = dash.Dash(
     __name__,
@@ -147,7 +148,8 @@ MODULE_INFO = {
 )
 def render_tab(tab, fuel_price, electricity_rate):
     name, target, colour = MODULE_INFO[tab]
-    return html.Div([
+
+    header = html.Div([
         html.H2(name, style={"color": "#1F3864", "marginTop": "0"}),
         html.Div([
             html.Span("Build target: ", style={"fontWeight": "600", "color": "#555"}),
@@ -171,16 +173,50 @@ def render_tab(tab, fuel_price, electricity_rate):
             "backgroundColor": "#EBF5FB",
             "padding": "10px 16px",
             "borderRadius": "4px",
-            "fontSize": "13px"
+            "fontSize": "13px",
+            "marginBottom": "20px"
         }),
-        html.P(
-            "Module content will be built in accordance with the project timeline. "
-            "Use the sidebar inputs to verify that global state is working correctly — "
-            "the active settings panel above should update across all tabs.",
-            style={"color": "#777", "fontSize": "13px", "marginTop": "20px"}
-        )
     ])
 
+    placeholder = html.P(
+        "Module content will be built in accordance with the project timeline. "
+        "Use the sidebar inputs to verify that global state is working correctly — "
+        "the active settings panel above should update across all tabs.",
+        style={"color": "#777", "fontSize": "13px", "marginTop": "20px"}
+    )
+
+    if tab == "tab-3":
+        fig = px.line(
+            fuel_df,
+            x="Date",
+            y=["Gasolene 87", "Gasolene 90", "Auto Diesel"],
+            title="Petrojam Weekly Pump Prices — Jamaica (J$/litre)",
+            labels={"value": "Price (J$/litre)", "variable": "Fuel Type"},
+            color_discrete_map={
+                "Gasolene 87":  "#2E75B6",
+                "Gasolene 90":  "#1A7A6E",
+                "Auto Diesel":  "#C55A11",
+            }
+        )
+        fig.add_hline(
+            y=fuel_price,
+            line_dash="dash",
+            line_color="#888",
+            annotation_text=f"Current input: J${fuel_price}",
+            annotation_position="top left"
+        )
+        fig.update_layout(
+            plot_bgcolor="#ffffff",
+            paper_bgcolor="#ffffff",
+            legend_title_text="",
+            hovermode="x unified",
+            margin={"t": 50, "b": 40, "l": 60, "r": 20},
+        )
+        content = dcc.Graph(figure=fig, style={"height": "480px"})
+    else:
+        content = placeholder
+
+    return html.Div([header, content])
 
 # ── Run ───────────────────────────────────────────────────────────
 if __name__ == "__main__":
