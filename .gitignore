@@ -8,6 +8,12 @@ env/
 .venv/
 *.egg-info/
 
+# Raw data files
+*.xlsx
+*.xls
+*.docx
+*.zip
+
 # Streamlit secrets
 .streamlit/secrets.toml
 
