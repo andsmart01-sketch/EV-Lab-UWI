@@ -370,17 +370,31 @@ def calculate_module1(ice_price, ice_consumption, ev_price, ev_consumption,
             months = diff / savings
             pb_text = f"{months:.0f} months ({months/12:.1f} years)"
             pb_col  = "#2E75B6"
-        cards.append(html.Div([html.P("Payback period", style=tiny),
-                                html.P(pb_text, style={**big, "color": pb_col, "fontSize": "17px"})],
-                               style=rc))
+        cards.append(html.Div([
+            html.P("Fuel cost payback (running costs only)", style=tiny),
+            html.P(pb_text, style={**big, "color": pb_col, "fontSize": "17px"}),
+            html.P("Based on fuel vs energy savings only. See TCO chart for full economic crossover "
+                   "including maintenance and depreciation.",
+                   style={"fontSize": "11px", "color": "#888888", "margin": "4px 0 0"}),
+        ], style=rc))
     elif not ev_price:
-        cards.append(html.Div([html.P("Payback period", style=tiny),
-                                html.P("Enter EV price to calculate",
-                                       style={**big, "fontSize": "13px", "color": "#aaa"})], style=rc))
+        cards.append(html.Div([
+            html.P("Fuel cost payback (running costs only)", style=tiny),
+            html.P("Enter EV price to calculate",
+                   style={**big, "fontSize": "13px", "color": "#aaa"}),
+            html.P("Based on fuel vs energy savings only. See TCO chart for full economic crossover "
+                   "including maintenance and depreciation.",
+                   style={"fontSize": "11px", "color": "#888888", "margin": "4px 0 0"}),
+        ], style=rc))
     else:
-        cards.append(html.Div([html.P("Payback period", style=tiny),
-                                html.P("EV running costs exceed ICE at current rates",
-                                       style={**big, "fontSize": "12px", "color": "#C00000"})], style=rc))
+        cards.append(html.Div([
+            html.P("Fuel cost payback (running costs only)", style=tiny),
+            html.P("EV running costs exceed ICE at current rates",
+                   style={**big, "fontSize": "12px", "color": "#C00000"}),
+            html.P("Based on fuel vs energy savings only. See TCO chart for full economic crossover "
+                   "including maintenance and depreciation.",
+                   style={"fontSize": "11px", "color": "#888888", "margin": "4px 0 0"}),
+        ], style=rc))
 
     years = int(years) if years else 5
 
