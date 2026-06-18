@@ -3,6 +3,9 @@ from dash import dcc, html, Input, Output
 from data_loader import load_fuel_prices, get_latest_prices
 import plotly.express as px
 import plotly.graph_objects as go
+import sys, os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'data'))
+from vehicles import ICE_VEHICLES, BEV_VEHICLES, get_ice_dropdown_options, get_bev_dropdown_options
 
 app = dash.Dash(
     __name__,
@@ -12,82 +15,6 @@ app = dash.Dash(
 # ── Data ──────────────────────────────────────────────────────────
 fuel_df = load_fuel_prices()
 latest_prices = get_latest_prices()
-# ── Vehicle Data ───────────────────────────────────────────────────
-USD_TO_JMD = 158.53  # exchange-rates.org, June 15, 2026
-
-ICE_VEHICLES = {
-    "toyota-yaris": {
-        "label": "Toyota Yaris (1.5L Sedan)",
-        "price": round(31920 * USD_TO_JMD / 1000) * 1000,
-        "consumption": 7.0,
-        "depreciation_y1": 0.18,
-        "depreciation_subsequent": 0.12,
-        "annual_maintenance_jmd": 100000,
-    },
-    "toyota-raize": {
-        "label": "Toyota Raize (1.0T Compact SUV)",
-        "price": round(32930 * USD_TO_JMD / 1000) * 1000,
-        "consumption": 7.5,
-        "depreciation_y1": 0.18,
-        "depreciation_subsequent": 0.12,
-        "annual_maintenance_jmd": 100000,
-    },
-    "toyota-yaris-cross": {
-        "label": "Toyota Yaris Cross",
-        "price": round(39731 * USD_TO_JMD / 1000) * 1000,
-        "consumption": 8.0,
-        "depreciation_y1": 0.18,
-        "depreciation_subsequent": 0.12,
-        "annual_maintenance_jmd": 100000,
-    },
-    "toyota-rav4": {
-        "label": "Toyota RAV4 (2.5L SUV)",
-        "price": round(50388 * USD_TO_JMD / 1000) * 1000,
-        "consumption": 10.5,
-        "depreciation_y1": 0.18,
-        "depreciation_subsequent": 0.12,
-        "annual_maintenance_jmd": 100000,
-    },
-}
-
-EV_VEHICLES = {
-    "byd-yuan-pro": {
-        "label": "BYD Yuan Pro (Compact SUV)",
-        "price": None,
-        "consumption": 15.0,
-        "range_km": 410,
-        "depreciation_y1": 0.22,
-        "depreciation_subsequent": 0.12,
-        "annual_maintenance_jmd": 40000,
-    },
-    "byd-yuan-plus": {
-        "label": "BYD Yuan Plus Standard Range",
-        "price": None,
-        "consumption": 14.0,
-        "range_km": 480,
-        "depreciation_y1": 0.22,
-        "depreciation_subsequent": 0.12,
-        "annual_maintenance_jmd": 40000,
-    },
-    "byd-seal": {
-        "label": "BYD Seal (Sedan)",
-        "price": None,
-        "consumption": 14.0,
-        "range_km": 570,
-        "depreciation_y1": 0.22,
-        "depreciation_subsequent": 0.12,
-        "annual_maintenance_jmd": 40000,
-    },
-    "byd-sealion7": {
-        "label": "BYD Sealion 7 AWD",
-        "price": None,
-        "consumption": 18.0,
-        "range_km": 480,
-        "depreciation_y1": 0.22,
-        "depreciation_subsequent": 0.12,
-        "annual_maintenance_jmd": 40000,
-    },
-}
 server = app.server  # Expose the Flask server for deployment on UWI server
 
 # ── Layout ────────────────────────────────────────────────────────
@@ -200,9 +127,9 @@ def module1_layout():
     }
     note = {"fontSize": "11px", "color": "#888", "marginTop": "-10px", "marginBottom": "14px"}
 
-    ice_opts = [{"label": v["label"], "value": k} for k, v in ICE_VEHICLES.items()]
-    ev_opts  = [{"label": v["label"], "value": k} for k, v in EV_VEHICLES.items()]
-    d_ice, d_ev = "toyota-yaris", "byd-yuan-pro"
+    ice_opts = get_ice_dropdown_options()
+    ev_opts  = get_bev_dropdown_options()
+    d_ice, d_ev = "toyota-yaris-new", "byd-yuan-pro-new"
 
     return html.Div([
         html.Div([
@@ -214,10 +141,10 @@ def module1_layout():
                              clearable=False, style={"fontSize": "13px", "marginBottom": "14px"}),
                 html.Label("Purchase price (J$)", style=lbl),
                 dcc.Input(id="m1-ice-price", type="number", debounce=True,
-                          value=ICE_VEHICLES[d_ice]["price"], style=inp),
+                          value=ICE_VEHICLES[d_ice]["price_jmd"], style=inp),
                 html.Label("Fuel consumption (L/100km)", style=lbl),
                 dcc.Input(id="m1-ice-consumption", type="number", debounce=True,
-                          value=ICE_VEHICLES[d_ice]["consumption"], step=0.1, style=inp),
+                          value=ICE_VEHICLES[d_ice]["consumption_per_100km"], step=0.1, style=inp),
                 html.P("Real-world estimates for Jamaican driving. Adjust as needed.", style=note),
             ], style=card),
 
@@ -234,12 +161,12 @@ def module1_layout():
                           placeholder="Enter dealer quote", value=None, style=inp),
                 html.Div(id="m1-ev-note",
                          children=html.P(
-                             f"Range: {EV_VEHICLES[d_ev]['range_km']} km (NEDC). "
+                             f"Range: {BEV_VEHICLES[d_ev]['range_km_nedc']} km (NEDC). "
                              "ATL Automotive does not publish BYD prices — enter dealer quote.",
                              style=note)),
                 html.Label("Energy consumption (kWh/100km)", style=lbl),
                 dcc.Input(id="m1-ev-consumption", type="number", debounce=True,
-                          value=EV_VEHICLES[d_ev]["consumption"], step=0.1, style=inp),
+                          value=BEV_VEHICLES[d_ev]["consumption_per_100km"], step=0.1, style=inp),
                 html.P("Estimated from battery capacity and NEDC range. Adjust as needed.", style=note),
             ], style=card),
         ], style={"display": "flex", "gap": "20px", "marginBottom": "20px", "flexWrap": "wrap"}),
@@ -297,7 +224,7 @@ def update_electricity_display(value):
 )
 def update_ice_inputs(model_key):
     v = ICE_VEHICLES[model_key]
-    return v["price"], v["consumption"]
+    return v["price_jmd"], v["consumption_per_100km"]
 
 
 @app.callback(
@@ -306,12 +233,12 @@ def update_ice_inputs(model_key):
     Input("m1-ev-dropdown", "value")
 )
 def update_ev_inputs(model_key):
-    v = EV_VEHICLES[model_key]
+    v = BEV_VEHICLES[model_key]
     note = html.P(
-        f"Range: {v['range_km']} km (NEDC). ATL Automotive does not publish prices — enter dealer quote.",
+        f"Range: {v['range_km_nedc']} km (NEDC). ATL Automotive does not publish prices — enter dealer quote.",
         style={"fontSize": "11px", "color": "#888", "marginTop": "-10px", "marginBottom": "14px"}
     )
-    return v["consumption"], note
+    return v["consumption_per_100km"], note
 
 
 @app.callback(
@@ -403,7 +330,7 @@ def calculate_module1(ice_price, ice_consumption, ev_price, ev_consumption,
         ev_annual_energy = (ev_consumption  / 100) * electricity_rate * daily_km * 365
 
         ice_v = next(iter(ICE_VEHICLES.values()))
-        ev_v  = next(iter(EV_VEHICLES.values()))
+        ev_v  = next(iter(BEV_VEHICLES.values()))
         ice_dep_y1, ice_dep_sub, ice_maint = (
             ice_v["depreciation_y1"], ice_v["depreciation_subsequent"], ice_v["annual_maintenance_jmd"]
         )
