@@ -6,6 +6,7 @@ import plotly.graph_objects as go
 import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'data'))
 from vehicles import ICE_VEHICLES, BEV_VEHICLES, get_ice_dropdown_options, get_bev_dropdown_options
+from module7_policy import build_module7_layout
 
 app = dash.Dash(
     __name__,
@@ -22,7 +23,7 @@ app.layout = html.Div([
 
     # Header
     html.Div([
-        html.H1("Jamaica EV & Hybrid Vehicle Dashboard",
+        html.H1("Jamaica EV Vehicle Dashboard",
                 style={"margin": "0", "color": "#1F3864", "fontSize": "28px"}),
         html.P("University of the West Indies, Mona Campus — EV Lab Research Project, 2026",
                style={"margin": "4px 0 0", "color": "#555", "fontSize": "13px"}),
@@ -184,7 +185,7 @@ def module1_layout():
         html.Div([
             html.Label("Ownership period (years)",
                        style={"fontSize": "12px", "fontWeight": "600", "color": "#555", "marginRight": "12px"}),
-            dcc.Input(id="m1-years", type="number", debounce=True, value=5, min=1, max=10,
+            dcc.Input(id="m1-years", type="number", debounce=True, value=5, min=1, max=20,
                       style={"width": "80px", "padding": "6px 8px", "fontSize": "13px",
                              "border": "1px solid #ccc", "borderRadius": "4px"}),
             html.Span(" years", style={"fontSize": "13px", "color": "#555", "marginLeft": "8px"}),
@@ -398,7 +399,7 @@ def calculate_module1(ice_price, ice_consumption, ev_price, ev_consumption,
 
 
 MODULE_INFO = {
-    "tab-1": ("EV / Hybrid vs. ICE Calculator",   "Week 2",   "#2E75B6"),
+    "tab-1": ("EV vs. ICE Calculator",   "Week 2",   "#2E75B6"),
     "tab-2": ("Route Cost Map",                    "Week 3",   "#2E75B6"),
     "tab-3": ("Gas & Energy Price Tracker",        "Week 2",   "#2E75B6"),
     "tab-4": ("Fleet Penetration Simulator",       "Week 3",   "#2E75B6"),
@@ -484,6 +485,8 @@ def render_tab(tab, fuel_price, electricity_rate):
         content = dcc.Graph(figure=fig, style={"height": "480px"})
     elif tab == "tab-1":
         content = module1_layout()
+    elif tab == "tab-7":
+        content = build_module7_layout()
     else:
         content = placeholder
     return html.Div([header, content])
