@@ -1,0 +1,16 @@
+name,location,g87,g90,diesel,survey_date,parish,brand,petrojam_date,petrojam_ref_87,petrojam_ref_90,petrojam_ref_diesel,markup_87,markup_90,markup_diesel
+Boot Dunrobin Service station,Dunrobin Ave,222.8,235.7,259.5,2026-06-22,Kingston,Independent,2026-06-11,193.63,201.08,212.0,29.17,34.62,47.5
+Fesco Future Energy Source,Beechwood Ave,212.7,225.5,257.2,2026-06-22,Kingston,Independent,2026-06-11,193.63,201.08,212.0,19.07,24.42,45.2
+Johnson's Petroleum,Beechwood Ave,211.9,225.0,231.7,2026-06-22,Kingston,Independent,2026-06-11,193.63,201.08,212.0,18.27,23.92,19.7
+Michael's Service Station,South Camp Road,209.5,218.3,220.8,2026-06-22,Kingston,Independent,2026-06-11,193.63,201.08,212.0,15.87,17.22,8.8
+RUBiS Gas Station Half-Way Tree Clock Tower,Half-Way Tree,212.0,225.1,245.6,2026-06-22,Kingston,RUBiS,2026-06-11,193.63,201.08,212.0,18.37,24.02,33.6
+RUBis Gas Station ,Hope Road,238.3,252.5,272.7,2026-06-22,Kingston,RUBiS,2026-06-11,193.63,201.08,212.0,44.67,51.42,60.7
+RUBiS Gas Station,Upper Waterloo Road,233.6,247.7,253.6,2026-06-22,Kingston,RUBiS,2026-06-11,193.63,201.08,212.0,39.97,46.62,41.6
+Texaco Gas Station Grab N Go,Constant Spring Road,235.68,251.2,260.9,2026-06-22,Kingston,Texaco,2026-06-11,193.63,201.08,212.0,42.05,50.12,48.9
+Texaco Gas Station,Old Hope Road-Oxford Road-Tom Redcam Road,214.9,226.5,261.9,2026-06-22,Kingston,Texaco,2026-06-11,193.63,201.08,212.0,21.27,25.42,49.9
+Texaco Gas Station ,Oxford Road-Half Way Tree,214.9,226.9,261.9,2026-06-22,Kingston,Texaco,2026-06-11,193.63,201.08,212.0,21.27,25.82,49.9
+Total Energies ,Nation Heroes Circle,208.3,216.3,260.7,2026-06-22,Kingston,TotalEnergies,2026-06-11,193.63,201.08,212.0,14.67,15.22,48.7
+Total Energies Half Way Tree Clock Tower,Half-Way Tree,212.0,225.1,253.5,2026-06-22,Kingston,TotalEnergies,2026-06-11,193.63,201.08,212.0,18.37,24.02,41.5
+Total Energies,Hope Road,250.3,264.3,270.0,2026-06-22,Kingston,TotalEnergies,2026-06-11,193.63,201.08,212.0,56.67,63.22,58.0
+Total Energies,Dominica Drive,248.3,270.3,285.0,2026-06-22,Kingston,TotalEnergies,2026-06-11,193.63,201.08,212.0,54.67,69.22,73.0
+Total Energies,Shortwood Road,238.1,252.1,267.8,2026-06-22,Kingston,TotalEnergies,2026-06-11,193.63,201.08,212.0,44.47,51.02,55.8
