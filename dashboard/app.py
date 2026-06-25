@@ -115,6 +115,281 @@ html.Div([
     "backgroundColor": "#f0f2f5"
 })
 
+# ── Module 8: Caribbean Regional Comparison Data ───────────────────
+# Sources:
+#   IEA Global EV Outlook 2026 (iea.org, May 2026)
+#   OLADE EV Fleet Report 2024 (olade.org)
+#   CARILEC (2025) for Barbados
+#   Jamaica Gleaner (2023) for Jamaica fleet figures
+#   OUR Jamaica (2021) for Cayman Islands
+#   CARICOM EV Month webinar series (November 2025)
+
+REGIONAL_DATA = [
+    {
+        "country": "Uruguay",
+        "region": "Latin America",
+        "ev_sales_share_pct": 30.0,
+        "ev_fleet_total": 13500,
+        "charging_stations": 180,
+        "key_policy": "Tax exemptions and subsidies; nearly 100% renewable electricity grid",
+        "import_duty_ev_pct": 0.0,
+        "fuel_price_usd_per_litre": 2.00,
+        "source_year": 2025,
+    },
+    {
+        "country": "Costa Rica",
+        "region": "Latin America",
+        "ev_sales_share_pct": 17.0,
+        "ev_fleet_total": 35000,
+        "charging_stations": 450,
+        "key_policy": "Law 9518 (2017): zero import duties and tax exemptions, being phased out 2025 to 2035",
+        "import_duty_ev_pct": 0.0,
+        "fuel_price_usd_per_litre": 1.45,
+        "source_year": 2025,
+    },
+    {
+        "country": "Colombia",
+        "region": "Latin America",
+        "ev_sales_share_pct": 10.0,
+        "ev_fleet_total": 20000,
+        "charging_stations": 300,
+        "key_policy": "Import duty exemptions; one third of government fleet must be EV by 2025; Bogota operates large electric bus fleet",
+        "import_duty_ev_pct": 0.0,
+        "fuel_price_usd_per_litre": 0.90,
+        "source_year": 2025,
+    },
+    {
+        "country": "Brazil",
+        "region": "Latin America",
+        "ev_sales_share_pct": 9.0,
+        "ev_fleet_total": 180000,
+        "charging_stations": 12700,
+        "key_policy": "Reduced import tariffs being reinstated; BYD assembly plant opened 2025; PHEV dominant over BEV",
+        "import_duty_ev_pct": 10.0,
+        "fuel_price_usd_per_litre": 1.10,
+        "source_year": 2025,
+    },
+    {
+        "country": "Barbados",
+        "region": "Caribbean",
+        "ev_sales_share_pct": None,
+        "ev_fleet_total": 600,
+        "charging_stations": 100,
+        "key_policy": "15 free public charging stations; Caribbean leader in per capita EV usage",
+        "import_duty_ev_pct": None,
+        "fuel_price_usd_per_litre": 1.35,
+        "source_year": 2023,
+    },
+    {
+        "country": "Jamaica",
+        "region": "Caribbean",
+        "ev_sales_share_pct": 3.0,
+        "ev_fleet_total": 6606,
+        "charging_stations": 100,
+        "key_policy": "National EV Policy 2023: 12% private, 16% public transport, 100% govt fleet by 2030; duty cut from 30% to 10%",
+        "import_duty_ev_pct": 10.0,
+        "fuel_price_usd_per_litre": 1.27,
+        "source_year": 2024,
+    },
+    {
+        "country": "Trinidad & Tobago",
+        "region": "Caribbean",
+        "ev_sales_share_pct": None,
+        "ev_fleet_total": None,
+        "charging_stations": None,
+        "key_policy": "Fossil fuel exporter; heavily subsidised fuel prices; minimal EV policy framework",
+        "import_duty_ev_pct": None,
+        "fuel_price_usd_per_litre": 0.40,
+        "source_year": 2024,
+    },
+    {
+        "country": "Cayman Islands",
+        "region": "Caribbean",
+        "ev_sales_share_pct": None,
+        "ev_fleet_total": 75,
+        "charging_stations": None,
+        "key_policy": "Small high-income jurisdiction; early adopter but no formal national EV policy",
+        "import_duty_ev_pct": 0.0,
+        "fuel_price_usd_per_litre": 1.60,
+        "source_year": 2021,
+    },
+]
+
+
+def module8_layout():
+    import pandas as pd
+
+    df = pd.DataFrame(REGIONAL_DATA)
+
+    # ── Chart 1: Horizontal bar chart of EV sales share ──────────────
+    df_bar = df[df["ev_sales_share_pct"].notna()].sort_values(
+        "ev_sales_share_pct", ascending=True
+    )
+    bar_colors = [
+        "#2E75B6" if c == "Jamaica" else
+        "#1A7A6E" if r == "Caribbean" else
+        "#AAAAAA"
+        for c, r in zip(df_bar["country"], df_bar["region"])
+    ]
+    fig_bar = go.Figure()
+    fig_bar.add_trace(go.Bar(
+        x=df_bar["ev_sales_share_pct"],
+        y=df_bar["country"],
+        orientation="h",
+        marker_color=bar_colors,
+        text=[f"{v:.0f}%" for v in df_bar["ev_sales_share_pct"]],
+        textposition="outside",
+    ))
+    fig_bar.add_vline(
+        x=12,
+        line_dash="dash",
+        line_color="#C0392B",
+        annotation_text="Jamaica 2030 target (12%)",
+        annotation_position="top right",
+        annotation_font_color="#C0392B",
+        annotation_font_size=11,
+    )
+    fig_bar.update_layout(
+        title={"text": "BEV New Car Sales Share by Country (%, most recent year)",
+               "font": {"size": 14}},
+        xaxis=dict(title="BEV New Car Sales Share (%)", range=[0, 40],
+                   ticksuffix="%"),
+        yaxis=dict(title=""),
+        plot_bgcolor="#ffffff",
+        paper_bgcolor="#ffffff",
+        height=340,
+        margin=dict(l=120, r=80, t=60, b=60),
+        showlegend=False,
+    )
+
+    # ── Chart 2: Scatter plot fuel price vs EV adoption ──────────────
+    df_scatter = df[
+        df["ev_sales_share_pct"].notna() &
+        df["fuel_price_usd_per_litre"].notna()
+    ].copy()
+    scatter_colors = [
+        "#2E75B6" if c == "Jamaica" else "#1A7A6E"
+        for c in df_scatter["country"]
+    ]
+    fig_scatter = go.Figure()
+    fig_scatter.add_trace(go.Scatter(
+        x=df_scatter["fuel_price_usd_per_litre"],
+        y=df_scatter["ev_sales_share_pct"],
+        mode="markers+text",
+        marker=dict(color=scatter_colors, size=12),
+        text=df_scatter["country"],
+        textposition="top center",
+        textfont=dict(size=11),
+    ))
+    fig_scatter.update_layout(
+        title={"text": "Retail Fuel Price vs BEV Adoption Rate",
+               "font": {"size": 14}},
+        xaxis=dict(title="Retail Fuel Price (USD/litre)",
+                   tickprefix="$"),
+        yaxis=dict(title="BEV New Car Sales Share (%)",
+                   ticksuffix="%"),
+        plot_bgcolor="#ffffff",
+        paper_bgcolor="#ffffff",
+        height=380,
+        margin=dict(l=60, r=40, t=60, b=60),
+        showlegend=False,
+        annotations=[dict(
+            text="Higher fuel prices correlate with faster BEV adoption. "
+                 "Trinidad and Tobago excluded (no adoption rate data). "
+                 "Sources: IEA Global EV Outlook 2026; OLADE (2024).",
+            xref="paper", yref="paper",
+            x=0, y=-0.18, showarrow=False,
+            font=dict(size=10, color="#888888"), align="left"
+        )]
+    )
+
+    # ── Summary table ─────────────────────────────────────────────────
+    banner = {
+        "backgroundColor": "#F5C400",
+        "color": "#1a1a1a",
+        "fontWeight": "700",
+        "fontSize": "15px",
+        "padding": "10px 18px",
+        "marginBottom": "12px",
+        "marginTop": "20px",
+        "borderRadius": "2px",
+    }
+    th = {
+        "backgroundColor": "#B8860B",
+        "color": "white",
+        "fontWeight": "600",
+        "fontSize": "12px",
+        "padding": "8px 12px",
+        "textAlign": "left",
+        "border": "1px solid #cccccc",
+    }
+
+    def td_style(country):
+        base = {
+            "padding": "7px 12px",
+            "fontSize": "12px",
+            "border": "1px solid #e0e0e0",
+            "verticalAlign": "top",
+        }
+        if country == "Jamaica":
+            base["backgroundColor"] = "#EBF5FB"
+            base["fontWeight"] = "600"
+        return base
+
+    headers = ["Country", "Region", "BEV Sales Share",
+               "EV Fleet Total", "Charging Stations",
+               "Import Duty on EVs", "Key Policy Note", "Data Year"]
+
+    rows = []
+    for r in REGIONAL_DATA:
+        tds = [
+            html.Td(r["country"],                                                                               style=td_style(r["country"])),
+            html.Td(r["region"],                                                                                style=td_style(r["country"])),
+            html.Td(f"{r['ev_sales_share_pct']:.0f}%" if r["ev_sales_share_pct"] is not None else "No data",   style=td_style(r["country"])),
+            html.Td(f"{r['ev_fleet_total']:,}" if r["ev_fleet_total"] is not None else "No data",               style=td_style(r["country"])),
+            html.Td(f"{r['charging_stations']:,}" if r["charging_stations"] is not None else "No data",         style=td_style(r["country"])),
+            html.Td(f"{r['import_duty_ev_pct']:.0f}%" if r["import_duty_ev_pct"] is not None else "No data",   style=td_style(r["country"])),
+            html.Td(r["key_policy"],                                                                            style=td_style(r["country"])),
+            html.Td(str(r["source_year"]),                                                                      style=td_style(r["country"])),
+        ]
+        rows.append(html.Tr(tds))
+
+    table = html.Table(
+        [html.Thead(html.Tr([html.Th(h, style=th) for h in headers])),
+         html.Tbody(rows)],
+        style={"width": "100%", "borderCollapse": "collapse",
+               "fontSize": "12px"}
+    )
+
+    return html.Div([
+        html.Div("BEV Adoption by Country", style=banner),
+        dcc.Graph(figure=fig_bar, config={"displayModeBar": False}),
+
+        html.Div("Fuel Price vs BEV Adoption Rate", style=banner),
+        dcc.Graph(figure=fig_scatter, config={"displayModeBar": False}),
+        html.P(
+            "Higher fuel prices correlate with faster BEV adoption across the region. "
+            "Jamaica's relatively moderate fuel price and the absence of full import "
+            "duty exemptions help explain its lower adoption rate compared to Uruguay "
+            "and Costa Rica.",
+            style={"fontSize": "13px", "color": "#444",
+                   "marginTop": "8px", "marginBottom": "20px"}
+        ),
+
+        html.Div("Regional Comparison Summary Table", style=banner),
+        table,
+        html.P(
+            "Sources: IEA Global EV Outlook 2026 (iea.org); OLADE EV Fleet Report 2024 "
+            "(olade.org); CARILEC (2025); Jamaica Gleaner (2023); OUR Jamaica (2021). "
+            "Sales share figures refer to new car sales in the most recent reported year. "
+            "Jamaica 2030 targets from MSETT National Electric Vehicle Policy (2023).",
+            style={"fontSize": "11px", "color": "#999",
+                   "marginTop": "14px", "borderTop": "1px solid #eee",
+                   "paddingTop": "10px"}
+        ),
+    ], style={"padding": "4px"})
+
+
 def module1_layout():
     card = {
         "backgroundColor": "#ffffff", "border": "1px solid #e0e0e0",
@@ -487,6 +762,8 @@ def render_tab(tab, fuel_price, electricity_rate):
         content = module1_layout()
     elif tab == "tab-7":
         content = build_module7_layout()
+    elif tab == "tab-8":
+        content = module8_layout()
     else:
         content = placeholder
     return html.Div([header, content])
