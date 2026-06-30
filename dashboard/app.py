@@ -216,6 +216,53 @@ REGIONAL_DATA = [
 ]
 
 
+# ── Module 5: Emissions Data ───────────────────────────────────────
+# Sources:
+#   MSETT (2023). 2022 Jamaica Integrated Resource Plan.
+#   Grid CO2 intensity derived from:
+#     2022: 2.1 Mt CO2 / 4,425 GWh = 0.474 kg CO2/kWh
+#     2030: 1.29 Mt CO2 / 4,688 GWh = 0.275 kg CO2/kWh (50% RE target)
+#   Petrol combustion: 2.31 kg CO2/litre (90 octane, standard chemistry)
+#   Manufacturing CO2 estimates from IEA lifecycle analysis literature.
+
+GRID_SCENARIOS = {
+    "current_2022": {
+        "label": "Current grid (2022 mix: 11.5% renewable)",
+        "intensity_kg_per_kwh": 0.474,
+        "re_pct": 11.5,
+    },
+    "irp_2026": {
+        "label": "IRP projected 2026 (26.7% renewable)",
+        "intensity_kg_per_kwh": 0.380,
+        "re_pct": 26.7,
+    },
+    "irp_2030": {
+        "label": "IRP 2030 target (49.8% renewable)",
+        "intensity_kg_per_kwh": 0.275,
+        "re_pct": 49.8,
+    },
+}
+
+CO2_PER_LITRE_PETROL = 2.31   # kg CO2/litre, 90 octane combustion
+CO2_PER_LITRE_DIESEL = 2.68   # kg CO2/litre, automotive diesel
+
+# Approximate BEV manufacturing CO2 premium above equivalent ICE vehicle
+# due to battery production. Source: IEA lifecycle analysis literature.
+# These are tonnes CO2 of additional manufacturing emissions for BEV vs ICE.
+BEV_MANUFACTURING_CO2_PREMIUM = {
+    "byd-yuan-pro-new":     7.2,
+    "byd-yuan-plus-new":    8.1,
+    "byd-seal-new":         9.5,
+    "byd-sealion7-new":    12.4,
+    "byd-atto3-new":        9.6,
+    "mg-zs-ev-new":         8.2,
+    "nissan-leaf-used":     5.8,
+    "hyundai-kona-ev-used": 9.0,
+    "kia-soul-ev-used":     9.0,
+    "tesla-model3-used":    8.8,
+}
+
+
 def module8_layout():
     import pandas as pd
 
@@ -518,6 +565,167 @@ def update_ev_inputs(model_key):
 
 
 @app.callback(
+    Output("m5-ice-consumption", "value"),
+    Input("m5-ice-dropdown", "value")
+)
+def m5_update_ice(model_key):
+    return ICE_VEHICLES[model_key]["consumption_per_100km"]
+
+
+@app.callback(
+    Output("m5-ev-consumption", "value"),
+    Input("m5-ev-dropdown", "value")
+)
+def m5_update_ev(model_key):
+    return BEV_VEHICLES[model_key]["consumption_per_100km"]
+
+
+@app.callback(
+    Output("m5-results", "children"),
+    Input("m5-ice-dropdown", "value"),
+    Input("m5-ice-consumption", "value"),
+    Input("m5-ev-dropdown", "value"),
+    Input("m5-ev-consumption", "value"),
+    Input("m5-daily-km", "value"),
+    Input("m5-years", "value"),
+    Input("m5-grid-scenario", "value"),
+)
+def calculate_module5(ice_key, ice_consumption, ev_key, ev_consumption,
+                      daily_km, years, grid_scenario):
+    if not all([ice_consumption, ev_consumption, daily_km, years, grid_scenario]):
+        return html.P("Enter all inputs to see results.",
+                      style={"color": "#888", "fontSize": "13px"})
+
+    years = int(years)
+    grid = GRID_SCENARIOS[grid_scenario]
+    intensity = grid["intensity_kg_per_kwh"]
+    annual_km = daily_km * 365.0
+
+    annual_co2_ice = (ice_consumption / 100) * annual_km * CO2_PER_LITRE_PETROL
+    annual_co2_ev  = (ev_consumption  / 100) * annual_km * intensity
+
+    mfg_premium_t  = BEV_MANUFACTURING_CO2_PREMIUM.get(ev_key, 8.0)
+    mfg_premium_kg = mfg_premium_t * 1000
+
+    lifetime_co2_ice = annual_co2_ice * years
+    lifetime_co2_ev  = annual_co2_ev  * years + mfg_premium_kg
+
+    annual_saving = annual_co2_ice - annual_co2_ev
+    carbon_payback_yrs = float("inf")
+    if annual_saving > 0:
+        carbon_payback_yrs = mfg_premium_kg / annual_saving
+        if carbon_payback_yrs <= 20:
+            payback_text = f"{carbon_payback_yrs:.1f} years"
+            payback_col  = "#2d8a2d"
+        else:
+            payback_text = f"{carbon_payback_yrs:.1f} years (beyond 20yr horizon)"
+            payback_col  = "#E07B22"
+    else:
+        payback_text = "BEV emits more per km at this grid mix"
+        payback_col  = "#C0392B"
+
+    banner = {
+        "backgroundColor": "#F5C400", "color": "#1a1a1a",
+        "fontWeight": "700", "fontSize": "15px",
+        "padding": "10px 18px", "marginBottom": "12px",
+        "marginTop": "8px", "borderRadius": "2px",
+    }
+    card = {
+        "backgroundColor": "#ffffff", "border": "1px solid #e0e0e0",
+        "borderRadius": "6px", "padding": "16px 20px",
+        "flex": "1", "minWidth": "160px", "textAlign": "center",
+    }
+    big  = {"fontSize": "22px", "fontWeight": "700", "margin": "6px 0"}
+    tiny = {"fontSize": "12px", "color": "#777", "margin": "0"}
+
+    cards = html.Div([
+        html.Div([
+            html.P("Annual ICE CO2", style=tiny),
+            html.P(f"{annual_co2_ice/1000:.2f} t", style={**big, "color": "#C55A11"}),
+        ], style=card),
+        html.Div([
+            html.P("Annual BEV CO2", style=tiny),
+            html.P(f"{annual_co2_ev/1000:.2f} t", style={**big, "color": "#1A7A6E"}),
+        ], style=card),
+        html.Div([
+            html.P("Annual CO2 saving", style=tiny),
+            html.P(f"{(annual_co2_ice - annual_co2_ev)/1000:.2f} t",
+                   style={**big, "color": "#2d8a2d" if annual_co2_ice > annual_co2_ev
+                          else "#C0392B"}),
+        ], style=card),
+        html.Div([
+            html.P(f"Lifetime CO2 -- ICE ({years} yrs)", style=tiny),
+            html.P(f"{lifetime_co2_ice/1000:.1f} t", style={**big, "color": "#C55A11"}),
+        ], style=card),
+        html.Div([
+            html.P("Lifetime CO2 -- BEV incl. manufacturing", style=tiny),
+            html.P(f"{lifetime_co2_ev/1000:.1f} t", style={**big, "color": "#1A7A6E"}),
+        ], style=card),
+        html.Div([
+            html.P("Carbon payback period", style=tiny),
+            html.P(payback_text, style={**big, "color": payback_col, "fontSize": "16px"}),
+        ], style=card),
+    ], style={"display": "flex", "gap": "12px", "flexWrap": "wrap",
+              "marginBottom": "20px"})
+
+    year_list      = list(range(0, years + 1))
+    ice_cumulative = [annual_co2_ice * y / 1000 for y in year_list]
+    ev_cumulative  = [annual_co2_ev  * y / 1000 + mfg_premium_kg / 1000
+                      for y in year_list]
+
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        x=year_list, y=ice_cumulative, mode="lines+markers",
+        name="ICE cumulative CO2",
+        line=dict(color="#C55A11", width=2), marker=dict(size=6),
+    ))
+    fig.add_trace(go.Scatter(
+        x=year_list, y=ev_cumulative, mode="lines+markers",
+        name="BEV cumulative CO2 (incl. manufacturing)",
+        line=dict(color="#1A7A6E", width=2), marker=dict(size=6),
+    ))
+    if 0 < carbon_payback_yrs <= years:
+        fig.add_vline(
+            x=carbon_payback_yrs,
+            line_dash="dash", line_color="#2d8a2d",
+            annotation_text=f"Carbon payback: {carbon_payback_yrs:.1f} yrs",
+            annotation_position="top right",
+            annotation_font_color="#2d8a2d",
+            annotation_font_size=11,
+        )
+    fig.update_layout(
+        title={"text": f"Cumulative CO2 Emissions over {years} Years (tonnes)",
+               "font": {"size": 14}},
+        xaxis=dict(title="Year of ownership", dtick=1),
+        yaxis=dict(title="Cumulative CO2 (tonnes)"),
+        plot_bgcolor="#ffffff",
+        paper_bgcolor="#ffffff",
+        legend=dict(orientation="h", yanchor="bottom", y=1.02,
+                    xanchor="left", x=0),
+        hovermode="x unified",
+        height=380,
+        margin=dict(l=60, r=40, t=70, b=50),
+    )
+
+    grid_note = (
+        f"Grid scenario: {grid['label']} -- "
+        f"{intensity} kg CO2/kWh. "
+        f"BEV manufacturing CO2 premium: {mfg_premium_t:.1f} tonnes "
+        f"(IEA lifecycle estimate). "
+        f"Petrol: {CO2_PER_LITRE_PETROL} kg CO2/litre."
+    )
+
+    return html.Div([
+        html.Div("Emissions Results", style=banner),
+        cards,
+        html.Div("Cumulative CO2 Trajectory", style=banner),
+        dcc.Graph(figure=fig, config={"displayModeBar": False}),
+        html.P(grid_note, style={"fontSize": "11px", "color": "#888",
+                                  "marginTop": "8px"}),
+    ])
+
+
+@app.callback(
     Output("m1-results", "children"),
     Input("m1-ice-price", "value"),
     Input("m1-ice-consumption", "value"),
@@ -685,6 +893,108 @@ MODULE_INFO = {
 }
 
 
+def module5_layout():
+    banner = {
+        "backgroundColor": "#F5C400",
+        "color": "#1a1a1a",
+        "fontWeight": "700",
+        "fontSize": "15px",
+        "padding": "10px 18px",
+        "marginBottom": "12px",
+        "marginTop": "8px",
+        "borderRadius": "2px",
+    }
+    lbl = {"fontSize": "12px", "fontWeight": "600", "color": "#555",
+           "marginBottom": "4px", "display": "block"}
+    inp = {
+        "width": "100%", "padding": "6px 8px", "fontSize": "13px",
+        "border": "1px solid #ccc", "borderRadius": "4px",
+        "marginBottom": "14px", "boxSizing": "border-box",
+    }
+
+    ice_opts  = [{"label": v["label"], "value": k} for k, v in ICE_VEHICLES.items()]
+    ev_opts   = [{"label": v["label"], "value": k} for k, v in BEV_VEHICLES.items()]
+    grid_opts = [{"label": v["label"], "value": k} for k, v in GRID_SCENARIOS.items()]
+
+    d_ice  = "toyota-yaris-new"
+    d_ev   = "byd-yuan-pro-new"
+    d_grid = "current_2022"
+
+    return html.Div([
+        html.Div("Emissions Calculator Inputs", style=banner),
+        html.Div([
+            # ICE column
+            html.Div([
+                html.H4("ICE Vehicle", style={"color": "#C55A11",
+                        "marginTop": "0", "marginBottom": "12px"}),
+                html.Label("Select model", style=lbl),
+                dcc.Dropdown(id="m5-ice-dropdown", options=ice_opts,
+                             value=d_ice, clearable=False,
+                             style={"fontSize": "13px", "marginBottom": "14px"}),
+                html.Label("Fuel consumption (L/100km)", style=lbl),
+                dcc.Input(id="m5-ice-consumption", type="number", debounce=True,
+                          value=ICE_VEHICLES[d_ice]["consumption_per_100km"],
+                          step=0.1, style=inp),
+            ], style={"flex": "1", "minWidth": "220px", "backgroundColor": "#fff",
+                      "border": "1px solid #e0e0e0", "borderRadius": "6px",
+                      "padding": "16px"}),
+
+            html.Div(style={"width": "16px"}),
+
+            # BEV column
+            html.Div([
+                html.H4("Electric Vehicle", style={"color": "#1A7A6E",
+                        "marginTop": "0", "marginBottom": "12px"}),
+                html.Label("Select model", style=lbl),
+                dcc.Dropdown(id="m5-ev-dropdown", options=ev_opts,
+                             value=d_ev, clearable=False,
+                             style={"fontSize": "13px", "marginBottom": "14px"}),
+                html.Label("Energy consumption (kWh/100km)", style=lbl),
+                dcc.Input(id="m5-ev-consumption", type="number", debounce=True,
+                          value=BEV_VEHICLES[d_ev]["consumption_per_100km"],
+                          step=0.1, style=inp),
+            ], style={"flex": "1", "minWidth": "220px", "backgroundColor": "#fff",
+                      "border": "1px solid #e0e0e0", "borderRadius": "6px",
+                      "padding": "16px"}),
+
+            html.Div(style={"width": "16px"}),
+
+            # Shared inputs column
+            html.Div([
+                html.H4("Driving and Grid", style={"color": "#2E75B6",
+                        "marginTop": "0", "marginBottom": "12px"}),
+                html.Label("Daily driving distance (km)", style=lbl),
+                dcc.Input(id="m5-daily-km", type="number", debounce=True,
+                          value=50, min=1, max=500, step=1, style=inp),
+                html.Label("Ownership period (years)", style=lbl),
+                dcc.Input(id="m5-years", type="number", debounce=True,
+                          value=5, min=1, max=20, step=1, style=inp),
+                html.Label("Grid scenario", style=lbl),
+                dcc.Dropdown(id="m5-grid-scenario", options=grid_opts,
+                             value=d_grid, clearable=False,
+                             style={"fontSize": "13px", "marginBottom": "4px"}),
+                html.P("Source: MSETT 2022 Jamaica IRP (Cabinet approved, Aug 2023).",
+                       style={"fontSize": "10px", "color": "#888", "marginTop": "4px"}),
+            ], style={"flex": "1", "minWidth": "220px", "backgroundColor": "#fff",
+                      "border": "1px solid #e0e0e0", "borderRadius": "6px",
+                      "padding": "16px"}),
+
+        ], style={"display": "flex", "gap": "0px", "marginBottom": "20px",
+                  "flexWrap": "wrap"}),
+
+        html.Div(id="m5-results"),
+
+        html.P([
+            "Petrol CO2: 2.31 kg CO2/litre (90 octane combustion chemistry). ",
+            "Grid CO2 intensities derived from MSETT (2023) 2022 Jamaica Integrated "
+            "Resource Plan: 2022 actual (2.1 Mt CO2 / 4,425 GWh); 2030 IRP target "
+            "(1.29 Mt CO2 / 4,688 GWh). BEV manufacturing CO2 premium estimates "
+            "from IEA lifecycle analysis literature. All figures are estimates."
+        ], style={"fontSize": "11px", "color": "#999", "marginTop": "16px",
+                  "borderTop": "1px solid #eee", "paddingTop": "12px"}),
+    ])
+
+
 @app.callback(
     Output("tab-content", "children"),
     Input("main-tabs", "value"),
@@ -764,6 +1074,8 @@ def render_tab(tab, fuel_price, electricity_rate):
         content = build_module7_layout()
     elif tab == "tab-8":
         content = module8_layout()
+    elif tab == "tab-5":
+        content = module5_layout()
     else:
         content = placeholder
     return html.Div([header, content])
