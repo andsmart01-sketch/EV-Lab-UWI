@@ -13,6 +13,28 @@ app = dash.Dash(
     title="Jamaica EV Dashboard — UWI Mona",
     suppress_callback_exceptions=True
 )
+app.index_string = '''
+<!DOCTYPE html>
+<html>
+    <head>
+        {%metas%}
+        <title>{%title%}</title>
+        {%favicon%}
+        {%css%}
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    </head>
+    <body>
+        {%app_entry%}
+        <footer>
+            {%config%}
+            {%scripts%}
+            {%renderer%}
+        </footer>
+    </body>
+</html>
+'''
 # ── Data ──────────────────────────────────────────────────────────
 fuel_df = load_fuel_prices()
 latest_prices = get_latest_prices()
@@ -21,99 +43,113 @@ server = app.server  # Expose the Flask server for deployment on UWI server
 # ── Layout ────────────────────────────────────────────────────────
 app.layout = html.Div([
 
-    # Header
-    html.Div([
-        html.H1("Jamaica EV Vehicle Dashboard",
-                style={"margin": "0", "color": "#1F3864", "fontSize": "28px"}),
-        html.P("University of the West Indies, Mona Campus — EV Lab Research Project, 2026",
-               style={"margin": "4px 0 0", "color": "#555", "fontSize": "13px"}),
-    ], style={
-        "padding": "20px 30px 16px",
-        "borderBottom": "3px solid #2E75B6",
-        "backgroundColor": "#ffffff"
-    }),
+    dcc.Store(id="active-tab-store", data="home"),
 
-    # Body: sidebar + main content
     html.Div([
 
-        # Sidebar — global controls
-html.Div([
-    html.H3("Global Controls", style={"color": "#1F3864", "fontSize": "15px", "marginBottom": "16px"}),
-
-    html.Label("90 Octane fuel price (J$/litre)", style={"fontSize": "13px", "fontWeight": "500"}),
-    dcc.Input(
-        id="fuel-price-slider",
-        type="number",
-        value=round(latest_prices["g90"]),
-        min=50,
-        max=500,
-        step=0.01,
-        debounce=True,
-        style={"width": "100%", "padding": "6px 8px", "fontSize": "13px",
-               "border": "1px solid #ccc", "borderRadius": "4px", "marginBottom": "4px"}
-    ),
-    html.Div(id="fuel-price-display",
-             style={"fontSize": "11px", "color": "#888", "marginBottom": "20px"}),
-
-    html.Label("JPS electricity rate (J$/kWh)", style={"fontSize": "13px", "fontWeight": "500"}),
-    dcc.Input(
-        id="electricity-rate-slider",
-        type="number",
-        value=50,
-        min=1,
-        max=200,
-        step=0.01,
-        debounce=True,
-        style={"width": "100%", "padding": "6px 8px", "fontSize": "13px",
-               "border": "1px solid #ccc", "borderRadius": "4px", "marginBottom": "4px"}
-    ),
-    html.Div(id="electricity-rate-display",
-             style={"fontSize": "11px", "color": "#888", "marginBottom": "20px"}),
-
-    html.Hr(style={"borderColor": "#ddd"}),
-    html.P(f"Fuel price sourced from Petrojam ({latest_prices['date']}).",
-           style={"fontSize": "11px", "color": "#888", "marginTop": "8px"}),
-    html.P("These controls update all modules simultaneously.",
-           style={"fontSize": "11px", "color": "#888"}),
-
-], style={
-    "width": "220px",
-    "minWidth": "220px",
-    "padding": "20px 16px",
-    "backgroundColor": "#f7f9fc",
-    "borderRight": "1px solid #e0e0e0",
-    "overflowY": "auto",
-}),
-
-        # Main content — tabs
+        # Sidebar -- navigation
         html.Div([
-            dcc.Tabs(
-                id="main-tabs",
-                value="tab-1",
-                children=[
-                    dcc.Tab(label="1 · EV vs ICE",       value="tab-1"),
-                    dcc.Tab(label="2 · Route Map",        value="tab-2"),
-                    dcc.Tab(label="3 · Price Tracker",    value="tab-3"),
-                    dcc.Tab(label="4 · Fleet Simulator",  value="tab-4"),
-                    dcc.Tab(label="5 · Emissions",        value="tab-5"),
-                    dcc.Tab(label="6 · Taxi Feasibility", value="tab-6"),
-                    dcc.Tab(label="7 · Policy & Duties",  value="tab-7"),
-                    dcc.Tab(label="8 · Caribbean",        value="tab-8"),
-                ],
-                style={"fontSize": "13px"}
-            ),
-            html.Div(id="tab-content", style={"padding": "24px"}),
-        ], style={"flex": "1", "overflow": "auto"}),
+            html.Div([
+                html.H2("Jamaica EV Dashboard", style={"color": "#fff", "fontSize": "16px", "margin": "0 0 2px"}),
+                html.P("UWI Mona -- EV Lab 2026", style={"color": "var(--sidebar-text)", "fontSize": "11px", "margin": "0"}),
+            ], style={"padding": "20px 20px 24px"}),
+
+            html.Div(id="sidebar-nav-container"),
+
+        ], style={
+            "width": "230px", "minWidth": "230px",
+            "backgroundColor": "var(--sidebar-bg)",
+            "height": "100vh", "overflowY": "auto",
+            "position": "sticky", "top": "0",
+        }),
+
+        # Main content
+        html.Div([
+            html.Details([
+                html.Summary("Global settings", style={
+                    "fontSize": "13px", "fontWeight": "500",
+                    "color": "var(--text-secondary)",
+                    "cursor": "pointer", "padding": "12px 20px",
+                }),
+                html.Div([
+                    html.Div([
+                        html.Label("Fuel grade", style={
+                            "fontSize": "12px", "fontWeight": "500",
+                            "display": "block", "marginBottom": "4px",
+                        }),
+                        dcc.Dropdown(
+                            id="fuel-grade-select",
+                            options=[{"label": "87 octane", "value": "g87"},
+                                     {"label": "90 octane", "value": "g90"}],
+                            value="g90", clearable=False,
+                            style={"width": "160px", "fontSize": "13px", "marginBottom": "8px"},
+                        ),
+                        html.Label("Fuel price (J$/litre)", style={
+                            "fontSize": "12px", "fontWeight": "500",
+                            "display": "block", "marginBottom": "4px",
+                        }),
+                        dcc.Input(
+                            id="fuel-price-slider", type="number",
+                            value=None,
+                            placeholder="Enter your local gas station price",
+                            min=50, max=500, step=0.01, debounce=True,
+                            style={"width": "160px", "padding": "6px 8px",
+                                   "fontSize": "13px",
+                                   "border": "1px solid var(--card-border)",
+                                   "borderRadius": "6px"},
+                        ),
+                    ], style={"marginRight": "32px"}),
+                    html.Div([
+                        html.Label("Home charging rate (J$/kWh)", style={
+                            "fontSize": "12px", "fontWeight": "500",
+                            "display": "block", "marginBottom": "4px",
+                        }),
+                        dcc.Input(
+                            id="electricity-rate-slider", type="number",
+                            value=42, min=1, max=999, step=0.01, debounce=True,
+                            style={"width": "160px", "padding": "6px 8px",
+                                   "fontSize": "13px",
+                                   "border": "1px solid var(--card-border)",
+                                   "borderRadius": "6px"},
+                        ),
+                        html.P("Source: PM Holness, JIS statement, March 2026.", style={
+                            "fontSize": "10px", "color": "var(--text-muted)", "marginTop": "2px",
+                        }),
+                    ], style={"marginRight": "32px"}),
+                    html.Div([
+                        html.Label("Public charging rate (J$/kWh)", style={
+                            "fontSize": "12px", "fontWeight": "500",
+                            "display": "block", "marginBottom": "4px",
+                        }),
+                        dcc.Input(
+                            id="public-charging-rate", type="number",
+                            value=96, min=1, max=200, step=0.01, debounce=True,
+                            style={"width": "160px", "padding": "6px 8px",
+                                   "fontSize": "13px",
+                                   "border": "1px solid var(--card-border)",
+                                   "borderRadius": "6px"},
+                        ),
+                        html.P("Source: Evergo, confirmed June 2026.", style={
+                            "fontSize": "10px", "color": "var(--text-muted)", "marginTop": "4px",
+                        }),
+                    ]),
+                ], style={"display": "flex", "flexWrap": "wrap", "padding": "0 20px 16px"}),
+            ], open=False, style={
+                "backgroundColor": "var(--card-bg)",
+                "border": "1px solid var(--card-border)",
+                "borderRadius": "10px",
+                "margin": "0 0 20px",
+            }),
+
+            html.Div(id="tab-content", style={"padding": "28px 32px"}),
+
+        ], style={"flex": "1", "overflow": "auto", "backgroundColor": "var(--page-bg)"}),
 
     ], style={"display": "flex", "flex": "1", "overflow": "hidden"}),
 
-], style={
-    "fontFamily": "Arial, sans-serif",
-    "display": "flex",
-    "flexDirection": "column",
-    "height": "100vh",
-    "backgroundColor": "#f0f2f5"
-})
+], style={"display": "flex", "flexDirection": "column", "height": "100vh"})
+
+USD_TO_JMD = 156.0   # BOJ mid-rate, approximate 2025-2026
 
 # ── Module 8: Caribbean Regional Comparison Data ───────────────────
 # Sources:
@@ -135,6 +171,7 @@ REGIONAL_DATA = [
         "import_duty_ev_pct": 0.0,
         "fuel_price_usd_per_litre": 2.00,
         "source_year": 2025,
+        "source_url": "https://www.iea.org/reports/global-ev-outlook-2026",
     },
     {
         "country": "Costa Rica",
@@ -146,6 +183,7 @@ REGIONAL_DATA = [
         "import_duty_ev_pct": 0.0,
         "fuel_price_usd_per_litre": 1.45,
         "source_year": 2025,
+        "source_url": "https://www.iea.org/reports/global-ev-outlook-2026",
     },
     {
         "country": "Colombia",
@@ -157,6 +195,7 @@ REGIONAL_DATA = [
         "import_duty_ev_pct": 0.0,
         "fuel_price_usd_per_litre": 0.90,
         "source_year": 2025,
+        "source_url": "https://www.iea.org/reports/global-ev-outlook-2026",
     },
     {
         "country": "Brazil",
@@ -168,6 +207,7 @@ REGIONAL_DATA = [
         "import_duty_ev_pct": 10.0,
         "fuel_price_usd_per_litre": 1.10,
         "source_year": 2025,
+        "source_url": "https://www.iea.org/reports/global-ev-outlook-2026",
     },
     {
         "country": "Barbados",
@@ -190,6 +230,7 @@ REGIONAL_DATA = [
         "import_duty_ev_pct": 10.0,
         "fuel_price_usd_per_litre": 1.27,
         "source_year": 2024,
+        "source_url": "https://www.iea.org/reports/global-ev-outlook-2026",
     },
     {
         "country": "Trinidad & Tobago",
@@ -314,46 +355,65 @@ def module8_layout():
         df["ev_sales_share_pct"].notna() &
         df["fuel_price_usd_per_litre"].notna()
     ].copy()
-    scatter_colors = [
-        "#2E75B6" if c == "Jamaica" else "#1A7A6E"
-        for c in df_scatter["country"]
-    ]
+    df_scatter["fuel_price_jmd_per_litre"] = (df_scatter["fuel_price_usd_per_litre"] * USD_TO_JMD).round(1)
     fig_scatter = go.Figure()
+
+    df_jamaica = df_scatter[df_scatter["country"] == "Jamaica"]
+    df_others  = df_scatter[df_scatter["country"] != "Jamaica"]
+
     fig_scatter.add_trace(go.Scatter(
-        x=df_scatter["fuel_price_usd_per_litre"],
-        y=df_scatter["ev_sales_share_pct"],
+        x=df_others["fuel_price_jmd_per_litre"],
+        y=df_others["ev_sales_share_pct"],
         mode="markers+text",
-        marker=dict(color=scatter_colors, size=12),
-        text=df_scatter["country"],
+        marker=dict(color="#1A7A6E", size=14),
+        text=df_others["country"],
         textposition="top center",
         textfont=dict(size=11),
+        name="Other countries",
     ))
+    fig_scatter.add_trace(go.Scatter(
+        x=df_jamaica["fuel_price_jmd_per_litre"],
+        y=df_jamaica["ev_sales_share_pct"],
+        mode="markers+text",
+        marker=dict(color="#2E75B6", size=16, line=dict(color="#0E2A24", width=1.5)),
+        text=df_jamaica["country"],
+        textposition="top center",
+        textfont=dict(size=11, color="#2E75B6"),
+        name="Jamaica",
+    ))
+
+    import numpy as np
+    if len(df_scatter) >= 2:
+        z = np.polyfit(df_scatter["fuel_price_jmd_per_litre"], df_scatter["ev_sales_share_pct"], 1)
+        trend_x = [df_scatter["fuel_price_jmd_per_litre"].min(), df_scatter["fuel_price_jmd_per_litre"].max()]
+        trend_y = [z[0] * x + z[1] for x in trend_x]
+        fig_scatter.add_trace(go.Scatter(
+            x=trend_x, y=trend_y,
+            mode="lines",
+            line=dict(color="#B0B0B0", width=1.5, dash="dot"),
+            name="Trend",
+            hoverinfo="skip",
+        ))
+
     fig_scatter.update_layout(
         title={"text": "Retail Fuel Price vs BEV Adoption Rate",
                "font": {"size": 14}},
-        xaxis=dict(title="Retail Fuel Price (USD/litre)",
-                   tickprefix="$"),
+        xaxis=dict(title="Retail Fuel Price (J$/litre)",
+                   tickprefix="J$"),
         yaxis=dict(title="BEV New Car Sales Share (%)",
                    ticksuffix="%"),
         plot_bgcolor="#ffffff",
         paper_bgcolor="#ffffff",
         height=380,
         margin=dict(l=60, r=40, t=60, b=60),
-        showlegend=False,
-        annotations=[dict(
-            text="Higher fuel prices correlate with faster BEV adoption. "
-                 "Trinidad and Tobago excluded (no adoption rate data). "
-                 "Sources: IEA Global EV Outlook 2026; OLADE (2024).",
-            xref="paper", yref="paper",
-            x=0, y=-0.18, showarrow=False,
-            font=dict(size=10, color="#888888"), align="left"
-        )]
+        showlegend=True,
+        legend=dict(orientation="h", yanchor="bottom", y=1.05, xanchor="left", x=0, font=dict(size=11)),
     )
 
     # ── Summary table ─────────────────────────────────────────────────
     banner = {
-        "backgroundColor": "#F5C400",
-        "color": "#1a1a1a",
+        "backgroundColor": "#E1F5EE",
+        "color": "#0E2A24",
         "fontWeight": "700",
         "fontSize": "15px",
         "padding": "10px 18px",
@@ -362,7 +422,7 @@ def module8_layout():
         "borderRadius": "2px",
     }
     th = {
-        "backgroundColor": "#B8860B",
+        "backgroundColor": "#1A9E75",
         "color": "white",
         "fontWeight": "600",
         "fontSize": "12px",
@@ -385,7 +445,7 @@ def module8_layout():
 
     headers = ["Country", "Region", "BEV Sales Share",
                "EV Fleet Total", "Charging Stations",
-               "Import Duty on EVs", "Key Policy Note", "Data Year"]
+               "Import Duty on EVs", "Key Policy Note", "Data Year", "Source"]
 
     rows = []
     for r in REGIONAL_DATA:
@@ -398,6 +458,12 @@ def module8_layout():
             html.Td(f"{r['import_duty_ev_pct']:.0f}%" if r["import_duty_ev_pct"] is not None else "No data",   style=td_style(r["country"])),
             html.Td(r["key_policy"],                                                                            style=td_style(r["country"])),
             html.Td(str(r["source_year"]),                                                                      style=td_style(r["country"])),
+            html.Td(
+                html.A("Source", href=r.get("source_url", "#"), target="_blank",
+                       style={"color": "#1A9E75", "textDecoration": "underline"})
+                if r.get("source_url") else "N/A",
+                style=td_style(r["country"])
+            ),
         ]
         rows.append(html.Tr(tds))
 
@@ -415,10 +481,15 @@ def module8_layout():
         html.Div("Fuel Price vs BEV Adoption Rate", style=banner),
         dcc.Graph(figure=fig_scatter, config={"displayModeBar": False}),
         html.P(
-            "Higher fuel prices correlate with faster BEV adoption across the region. "
-            "Jamaica's relatively moderate fuel price and the absence of full import "
-            "duty exemptions help explain its lower adoption rate compared to Uruguay "
-            "and Costa Rica.",
+            "Each point is one country. The x-axis is retail fuel price in J$ per litre "
+            "(USD converted at J$156 = US$1, approximate BOJ mid-rate 2025-2026); the "
+            "y-axis is BEV share of new car sales (not total fleet stock). The dotted line is a "
+            "simple linear trend across the five countries with adoption data. Barbados, Trinidad "
+            "and Tobago, and Cayman Islands are excluded, no adoption-rate data available for them. "
+            "The trend is directionally consistent (higher fuel prices, higher adoption) at the "
+            "top of the range, but Jamaica's position, moderate fuel price, lowest adoption in the "
+            "group, suggests fuel price alone doesn't explain the gap. Sources: IEA Global EV "
+            "Outlook 2026 (iea.org); OLADE (2024).",
             style={"fontSize": "13px", "color": "#444",
                    "marginTop": "8px", "marginBottom": "20px"}
         ),
@@ -485,7 +556,7 @@ def module1_layout():
                 html.Div(id="m1-ev-note",
                          children=html.P(
                              f"Range: {BEV_VEHICLES[d_ev]['range_km_nedc']} km (NEDC). "
-                             "ATL Automotive does not publish BYD prices — enter dealer quote.",
+                             "Price not publicly listed by the authorized dealer — enter a confirmed dealer quote.",
                              style=note)),
                 html.Label("Energy consumption (kWh/100km)", style=lbl),
                 dcc.Input(id="m1-ev-consumption", type="number", debounce=True,
@@ -518,28 +589,21 @@ def module1_layout():
 
         html.P(
             "ICE prices: Toyota Jamaica (toyotajamaica.com, June 2026), converted at J$158.53/USD "
-            "(exchange-rates.org, June 15, 2026). EV prices: not publicly listed by ATL Automotive / "
-            "BYD Jamaica (byd.atlautomotive.com). Consumption figures are estimates for Jamaican "
-            "driving conditions.",
+            "(exchange-rates.org, June 15, 2026). EV prices: not publicly listed by the authorized "
+            "dealer in Jamaica -- enter a confirmed dealer quote. Consumption figures are estimates "
+            "for Jamaican driving conditions.",
             style={"fontSize": "11px", "color": "#999", "marginTop": "16px",
                    "borderTop": "1px solid #eee", "paddingTop": "12px"}),
     ])
 
 # ── Callbacks ─────────────────────────────────────────────────────
 @app.callback(
-    Output("fuel-price-display", "children"),
-    Input("fuel-price-slider", "value")
+    Output("fuel-price-slider", "value"),
+    Input("fuel-grade-select", "value"),
+    prevent_initial_call=True
 )
-def update_fuel_display(value):
-    return f"Current: J${value}/litre"
-
-
-@app.callback(
-    Output("electricity-rate-display", "children"),
-    Input("electricity-rate-slider", "value")
-)
-def update_electricity_display(value):
-    return f"Current: J${value}/kWh"
+def update_fuel_price_from_grade(grade):
+    return round(latest_prices.get(grade, latest_prices["g90"]))
 @app.callback(
     Output("m1-ice-price", "value"),
     Output("m1-ice-consumption", "value"),
@@ -558,7 +622,7 @@ def update_ice_inputs(model_key):
 def update_ev_inputs(model_key):
     v = BEV_VEHICLES[model_key]
     note = html.P(
-        f"Range: {v['range_km_nedc']} km (NEDC). ATL Automotive does not publish prices — enter dealer quote.",
+        f"Range: {v['range_km_nedc']} km (NEDC). Price not publicly listed by the authorized dealer — enter a confirmed dealer quote.",
         style={"fontSize": "11px", "color": "#888", "marginTop": "-10px", "marginBottom": "14px"}
     )
     return v["consumption_per_100km"], note
@@ -625,7 +689,7 @@ def calculate_module5(ice_key, ice_consumption, ev_key, ev_consumption,
         payback_col  = "#C0392B"
 
     banner = {
-        "backgroundColor": "#F5C400", "color": "#1a1a1a",
+        "backgroundColor": "#E1F5EE", "color": "#0E2A24",
         "fontWeight": "700", "fontSize": "15px",
         "padding": "10px 18px", "marginBottom": "12px",
         "marginTop": "8px", "borderRadius": "2px",
@@ -744,10 +808,10 @@ def calculate_module1(ice_price, ice_consumption, ev_price, ev_consumption,
 
     cost_km_ice = (ice_consumption / 100) * fuel_price
     cost_km_ev  = (ev_consumption  / 100) * electricity_rate
-    monthly_km  = daily_km * 30.44
-    monthly_ice = cost_km_ice * monthly_km
-    monthly_ev  = cost_km_ev  * monthly_km
-    savings     = monthly_ice - monthly_ev
+    annual_km   = daily_km * 365
+    annual_ice  = cost_km_ice * annual_km
+    annual_ev   = cost_km_ev  * annual_km
+    savings     = annual_ice - annual_ev
 
     rc = {
         "backgroundColor": "#ffffff", "border": "1px solid #e0e0e0",
@@ -762,11 +826,11 @@ def calculate_module1(ice_price, ice_consumption, ev_price, ev_consumption,
                   html.P(f"J${cost_km_ice:.2f}", style={**big, "color": "#C55A11"})], style=rc),
         html.Div([html.P("EV cost per km",      style=tiny),
                   html.P(f"J${cost_km_ev:.2f}", style={**big, "color": "#1A7A6E"})], style=rc),
-        html.Div([html.P("Monthly ICE fuel cost", style=tiny),
-                  html.P(f"J${monthly_ice:,.0f}", style={**big, "color": "#C55A11"})], style=rc),
-        html.Div([html.P("Monthly EV energy cost", style=tiny),
-                  html.P(f"J${monthly_ev:,.0f}", style={**big, "color": "#1A7A6E"})], style=rc),
-        html.Div([html.P("Monthly savings", style=tiny),
+        html.Div([html.P("Annual ICE fuel cost", style=tiny),
+                  html.P(f"J${annual_ice:,.0f}", style={**big, "color": "#C55A11"})], style=rc),
+        html.Div([html.P("Annual EV energy cost", style=tiny),
+                  html.P(f"J${annual_ev:,.0f}", style={**big, "color": "#1A7A6E"})], style=rc),
+        html.Div([html.P("Annual savings", style=tiny),
                   html.P(
                       f"J${savings:,.0f}" if savings >= 0 else f"-J${abs(savings):,.0f}",
                       style={**big, "color": "#2E75B6" if savings >= 0 else "#C00000"}
@@ -832,6 +896,17 @@ def calculate_module1(ice_price, ice_consumption, ev_price, ev_consumption,
 
         x_yrs = list(range(0, years + 1))
 
+        lifetime_savings = ice_cum[years] - ev_cum[years]
+        cards.append(html.Div([
+            html.P(f"Savings over {years}-year ownership period", style=tiny),
+            html.P(
+                f"J${lifetime_savings:,.0f}" if lifetime_savings >= 0 else f"-J${abs(lifetime_savings):,.0f}",
+                style={**big, "color": "#2E75B6" if lifetime_savings >= 0 else "#C0392B"}
+            ),
+            html.P("Positive means the EV is cheaper over the full period. Negative means the ICE vehicle is cheaper overall.",
+                   style={"fontSize": "11px", "color": "#888888", "margin": "4px 0 0"}),
+        ], style=rc))
+
         crossover = None
         for i in range(len(x_yrs) - 1):
             d0, d1 = ice_cum[i] - ev_cum[i], ice_cum[i + 1] - ev_cum[i + 1]
@@ -895,8 +970,8 @@ MODULE_INFO = {
 
 def module5_layout():
     banner = {
-        "backgroundColor": "#F5C400",
-        "color": "#1a1a1a",
+        "backgroundColor": "#E1F5EE",
+        "color": "#0E2A24",
         "fontWeight": "700",
         "fontSize": "15px",
         "padding": "10px 18px",
@@ -995,13 +1070,93 @@ def module5_layout():
     ])
 
 
+NAV_ICONS = {
+    "tab-1": "fa-solid fa-calculator",
+    "tab-2": "fa-solid fa-route",
+    "tab-3": "fa-solid fa-gas-pump",
+    "tab-4": "fa-solid fa-chart-line",
+    "tab-5": "fa-solid fa-leaf",
+    "tab-6": "fa-solid fa-taxi",
+    "tab-7": "fa-solid fa-scale-balanced",
+    "tab-8": "fa-solid fa-globe",
+}
+
+
+def homepage_layout():
+    card_style = {
+        "backgroundColor": "var(--card-bg)", "border": "1px solid var(--card-border)",
+        "borderRadius": "12px", "padding": "20px", "cursor": "pointer",
+        "boxShadow": "var(--shadow-card)", "transition": "transform 0.1s ease",
+    }
+    cards = []
+    for tab_id, (name, target, colour) in MODULE_INFO.items():
+        cards.append(
+            html.Div([
+                html.I(className=NAV_ICONS.get(tab_id, "fa-solid fa-circle"),
+                       style={"fontSize": "22px", "color": "var(--accent)", "marginBottom": "10px"}),
+                html.H4(name, style={"margin": "0 0 6px", "fontSize": "15px", "color": "var(--text-primary)"}),
+                html.P(f"Build target: {target}", style={"margin": "0", "fontSize": "12px", "color": "var(--text-muted)"}),
+            ], id={"type": "nav-link", "index": tab_id}, n_clicks=0, style=card_style)
+        )
+    return html.Div([
+        html.H2("Jamaica EV Dashboard", style={"color": "var(--text-primary)", "marginBottom": "4px"}),
+        html.P("Select a module below to get started.", style={"color": "var(--text-secondary)", "marginBottom": "24px", "fontSize": "13px"}),
+        html.Div(cards, style={"display": "grid", "gridTemplateColumns": "repeat(auto-fill, minmax(220px, 1fr))", "gap": "16px"}),
+    ])
+
+
+@app.callback(
+    Output("sidebar-nav-container", "children"),
+    Input("active-tab-store", "data")
+)
+def render_sidebar_nav(active_tab):
+    links = [
+        html.Div([
+            html.I(className="fa-solid fa-house", style={"width": "18px", "fontSize": "13px"}),
+            html.Span("Home", style={"fontSize": "13px"}),
+        ], id={"type": "nav-link", "index": "home"},
+           className="sidebar-nav-link" + (" active" if active_tab == "home" else ""),
+           n_clicks=0)
+    ]
+    for tab_id, (name, _, _) in MODULE_INFO.items():
+        is_active = tab_id == active_tab
+        links.append(
+            html.Div([
+                html.I(className=NAV_ICONS.get(tab_id, "fa-solid fa-circle"),
+                       style={"width": "18px", "fontSize": "13px"}),
+                html.Span(name, style={"fontSize": "13px"}),
+            ], id={"type": "nav-link", "index": tab_id},
+               className="sidebar-nav-link" + (" active" if is_active else ""),
+               n_clicks=0)
+        )
+    return links
+
+
+@app.callback(
+    Output("active-tab-store", "data"),
+    Input({"type": "nav-link", "index": dash.ALL}, "n_clicks"),
+    prevent_initial_call=True
+)
+def update_active_tab(n_clicks_list):
+    import json
+    ctx = dash.callback_context
+    if not ctx.triggered:
+        return dash.no_update
+    triggered_id = ctx.triggered[0]["prop_id"].split(".")[0]
+    tab_id = json.loads(triggered_id)["index"]
+    return tab_id
+
+
 @app.callback(
     Output("tab-content", "children"),
-    Input("main-tabs", "value"),
+    Input("active-tab-store", "data"),
     Input("fuel-price-slider", "value"),
     Input("electricity-rate-slider", "value")
 )
 def render_tab(tab, fuel_price, electricity_rate):
+    if tab == "home":
+        return homepage_layout()
+
     name, target, colour = MODULE_INFO[tab]
 
     header = html.Div([
@@ -1021,7 +1176,7 @@ def render_tab(tab, fuel_price, electricity_rate):
         html.Div([
             html.P([
                 html.Strong("Active global settings: "),
-                f"Fuel price = J${fuel_price}/litre   |   "
+                f"Fuel price = {'J$' + str(fuel_price) if fuel_price else 'not set'}   |   "
                 f"Electricity rate = J${electricity_rate}/kWh"
             ], style={"fontSize": "13px", "color": "#444", "margin": "0"})
         ], style={
@@ -1053,13 +1208,14 @@ def render_tab(tab, fuel_price, electricity_rate):
                 "Auto Diesel":  "#C55A11",
             }
         )
-        fig.add_hline(
-            y=fuel_price,
-            line_dash="dash",
-            line_color="#888",
-            annotation_text=f"Current input: J${fuel_price}",
-            annotation_position="top left"
-        )
+        if fuel_price is not None:
+            fig.add_hline(
+                y=fuel_price,
+                line_dash="dash",
+                line_color="#888",
+                annotation_text=f"Current input: J${fuel_price}",
+                annotation_position="top left"
+            )
         fig.update_layout(
             plot_bgcolor="#ffffff",
             paper_bgcolor="#ffffff",

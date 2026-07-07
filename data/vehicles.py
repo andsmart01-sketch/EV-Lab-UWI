@@ -235,8 +235,8 @@ BEV_VEHICLES = {
         "condition": "new", "year": 2024,
         "price_jmd": None,
         "price_verified": False,
-        "price_source": "ATL Automotive / BYD Jamaica (byd.atlautomotive.com) does not "
-                        "publish prices. Enter confirmed dealer quote.",
+        "price_source": "Not publicly listed by the manufacturer's authorized dealer in Jamaica. "
+                        "Enter a confirmed dealer quote.",
         "consumption_per_100km": 15.0,
         "battery_kwh": 45.1,
         "range_km_nedc": 410,
@@ -246,7 +246,7 @@ BEV_VEHICLES = {
         "depreciation_y1": 0.22,
         "depreciation_subsequent": 0.12,
         "manufacturing_co2_tonnes": 8.1,
-        "notes": "Entry-level BYD SUV. Sold by ATL Automotive Group in Jamaica. "
+        "notes": "Entry-level BYD SUV. Available in Jamaica. "
                  "BYD sold approximately 85 vehicles in Jamaica in 2024 "
                  "(Jamaica Observer, Jan 2025)."
     },
@@ -257,8 +257,8 @@ BEV_VEHICLES = {
         "condition": "new", "year": 2024,
         "price_jmd": None,
         "price_verified": False,
-        "price_source": "ATL Automotive / BYD Jamaica. Price not published. "
-                        "Enter confirmed dealer quote.",
+        "price_source": "Not publicly listed by the manufacturer's authorized dealer in Jamaica. "
+                        "Enter a confirmed dealer quote.",
         "consumption_per_100km": 14.0,
         "battery_kwh": 49.92,
         "range_km_nedc": 480,
@@ -277,8 +277,8 @@ BEV_VEHICLES = {
         "condition": "new", "year": 2024,
         "price_jmd": None,
         "price_verified": False,
-        "price_source": "ATL Automotive / BYD Jamaica. Price not published. "
-                        "Enter confirmed dealer quote.",
+        "price_source": "Not publicly listed by the manufacturer's authorized dealer in Jamaica. "
+                        "Enter a confirmed dealer quote.",
         "consumption_per_100km": 14.0,
         "battery_kwh": 60.0,
         "range_km_nedc": 570,
@@ -297,8 +297,8 @@ BEV_VEHICLES = {
         "condition": "new", "year": 2024,
         "price_jmd": None,
         "price_verified": False,
-        "price_source": "ATL Automotive / BYD Jamaica. Price not published. "
-                        "Enter confirmed dealer quote.",
+        "price_source": "Not publicly listed by the manufacturer's authorized dealer in Jamaica. "
+                        "Enter a confirmed dealer quote.",
         "consumption_per_100km": 18.0,
         "battery_kwh": 82.56,
         "range_km_nedc": 480,
@@ -317,8 +317,8 @@ BEV_VEHICLES = {
         "condition": "new", "year": 2024,
         "price_jmd": None,
         "price_verified": False,
-        "price_source": "ATL Automotive / BYD Jamaica. Price not published. "
-                        "Enter confirmed dealer quote.",
+        "price_source": "Not publicly listed by the manufacturer's authorized dealer in Jamaica. "
+                        "Enter a confirmed dealer quote.",
         "consumption_per_100km": 14.0,
         "battery_kwh": 60.48,
         "range_km_nedc": 420,
@@ -328,8 +328,7 @@ BEV_VEHICLES = {
         "depreciation_y1": 0.22,
         "depreciation_subsequent": 0.12,
         "manufacturing_co2_tonnes": 10.9,
-        "notes": "Also available through ATL Automotive. Similar spec to Yuan Plus "
-                 "but larger body."
+        "notes": "Similar spec to Yuan Plus but larger body."
     },
 
     "mg-zs-ev-new": {
@@ -338,8 +337,8 @@ BEV_VEHICLES = {
         "condition": "new", "year": 2024,
         "price_jmd": None,
         "price_verified": False,
-        "price_source": "MG Jamaica price not publicly available. "
-                        "Enter confirmed dealer quote from ATL Automotive.",
+        "price_source": "Not publicly listed by the manufacturer's authorized dealer in Jamaica. "
+                        "Enter a confirmed dealer quote.",
         "consumption_per_100km": 16.0,
         "battery_kwh": 50.3,
         "range_km_nedc": None,
@@ -349,8 +348,7 @@ BEV_VEHICLES = {
         "depreciation_y1": 0.22,
         "depreciation_subsequent": 0.12,
         "manufacturing_co2_tonnes": 9.1,
-        "notes": "MG is part of ATL Automotive Group in Jamaica. "
-                 "One of the growing Chinese EV brands in the market."
+        "notes": "One of the growing Chinese EV brands in the Jamaican market."
     },
 
     # ── USED BEV ────────────────────────────────────────────────────────────────
