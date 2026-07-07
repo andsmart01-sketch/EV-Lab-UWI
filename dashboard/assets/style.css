@@ -1,0 +1,68 @@
+:root {
+  --accent: #1A9E75;
+  --accent-dark: #0E2A24;
+  --accent-light: #E1F5EE;
+  --sidebar-bg: #0E2A24;
+  --sidebar-text: #7FA89C;
+  --sidebar-text-active: #3FD9A6;
+  --page-bg: #F2F8F6;
+  --card-bg: #FFFFFF;
+  --card-border: #E0E8E5;
+  --text-primary: #0E2A24;
+  --text-secondary: #5B7A70;
+  --text-muted: #8A9E97;
+  --ice-color: #C55A11;
+  --ev-color: #1A9E75;
+  --danger: #C0392B;
+  --warning: #E0A106;
+  --shadow-card: 0 1px 3px rgba(14, 42, 36, 0.08);
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background-color: var(--page-bg);
+}
+
+.sidebar-nav-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  border-radius: 8px;
+  color: var(--sidebar-text);
+  font-size: 13px;
+  cursor: pointer;
+  margin-bottom: 4px;
+  transition: background-color 0.15s ease;
+}
+
+.sidebar-nav-link:hover {
+  background-color: rgba(63, 217, 166, 0.08);
+  color: var(--sidebar-text-active);
+}
+
+.sidebar-nav-link.active {
+  background-color: rgba(63, 217, 166, 0.14);
+  color: var(--sidebar-text-active);
+  font-weight: 500;
+}
+
+.dash-card {
+  background-color: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  box-shadow: var(--shadow-card);
+  padding: 16px 20px;
+}
+
+.section-banner {
+  background-color: var(--accent-light);
+  color: var(--accent-dark);
+  font-weight: 600;
+  font-size: 14px;
+  padding: 10px 16px;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  margin-top: 8px;
+  border-left: 3px solid var(--accent);
+}
