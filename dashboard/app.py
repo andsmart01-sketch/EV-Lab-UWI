@@ -1,6 +1,6 @@
 import dash
 from dash import dcc, html, Input, Output
-from data_loader import load_fuel_prices, get_latest_prices
+from data_loader import load_fuel_prices, get_latest_prices, get_live_exchange_rate
 import plotly.express as px
 import plotly.graph_objects as go
 import sys, os
@@ -41,9 +41,18 @@ latest_prices = get_latest_prices()
 server = app.server  # Expose the Flask server for deployment on UWI server
 
 # ── Layout ────────────────────────────────────────────────────────
-app.layout = html.Div([
+def placeholder_layout():
+    return html.P(
+        "Module content will be built in accordance with the project timeline.",
+        style={"color": "#777", "fontSize": "13px", "marginTop": "20px"}
+    )
+
+
+def serve_layout():
+    return html.Div([
 
     dcc.Store(id="active-tab-store", data="home"),
+    dcc.Store(id="effective-fuel-price-store", data=None),
 
     html.Div([
 
@@ -65,6 +74,8 @@ app.layout = html.Div([
 
         # Main content
         html.Div([
+            html.Div(id="m6-fuel-price-prompt"),
+            html.Div(id="module-instructions"),
             html.Details([
                 html.Summary("Global settings", style={
                     "fontSize": "13px", "fontWeight": "500",
@@ -83,20 +94,6 @@ app.layout = html.Div([
                                      {"label": "90 octane", "value": "g90"}],
                             value="g90", clearable=False,
                             style={"width": "160px", "fontSize": "13px", "marginBottom": "8px"},
-                        ),
-                        html.Label("Fuel price (J$/litre)", style={
-                            "fontSize": "12px", "fontWeight": "500",
-                            "display": "block", "marginBottom": "4px",
-                        }),
-                        dcc.Input(
-                            id="fuel-price-slider", type="number",
-                            value=None,
-                            placeholder="Enter your local gas station price",
-                            min=50, max=500, step=0.01, debounce=True,
-                            style={"width": "160px", "padding": "6px 8px",
-                                   "fontSize": "13px",
-                                   "border": "1px solid var(--card-border)",
-                                   "borderRadius": "6px"},
                         ),
                     ], style={"marginRight": "32px"}),
                     html.Div([
@@ -132,6 +129,50 @@ app.layout = html.Div([
                         html.P("Source: Evergo, confirmed June 2026.", style={
                             "fontSize": "10px", "color": "var(--text-muted)", "marginTop": "4px",
                         }),
+                    ], style={"marginRight": "32px"}),
+                    html.Div([
+                        html.Label("Retail markup source", style={
+                            "fontSize": "12px", "fontWeight": "500",
+                            "display": "block", "marginBottom": "4px",
+                        }),
+                        dcc.Dropdown(
+                            id="markup-station-select",
+                            options=[{"label": s["label"], "value": i}
+                                     for i, s in enumerate(KINGSTON_STATION_MARKUPS)],
+                            value=0,
+                            clearable=False,
+                            style={"width": "260px", "fontSize": "12px", "marginBottom": "8px"},
+                        ),
+                        html.P(
+                            "The Petrojam reference price already includes Special Consumption Tax (SCT). "
+                            "The retail markup is the additional amount each station charges above that reference. "
+                            "Custom entry accepts the full pump price.",
+                            style={"fontSize": "10px", "color": "var(--text-muted)",
+                                   "marginTop": "0", "marginBottom": "6px", "maxWidth": "260px"},
+                        ),
+                        html.Div(id="markup-custom-input-wrapper", children=[
+                            html.Label("Full retail price (J$/L)", style={
+                                "fontSize": "12px", "fontWeight": "500",
+                                "display": "block", "marginBottom": "4px",
+                            }),
+                            dcc.Input(
+                                id="markup-custom-input", type="number",
+                                placeholder="Enter the pump price you pay at your station",
+                                value=None, min=50, max=600, step=0.5, debounce=True,
+                                style={"width": "240px", "padding": "6px 8px",
+                                       "fontSize": "13px",
+                                       "border": "1px solid var(--card-border)",
+                                       "borderRadius": "6px"},
+                            ),
+                        ], style={"display": "none"}),
+                        html.Div(id="effective-fuel-price-display",
+                                 style={"fontSize": "11px", "color": "var(--text-muted)",
+                                        "marginTop": "6px"}),
+                        html.P("Retail = Petrojam reference + markup. Markup defaults to Kingston "
+                               "field survey averages (J$29 for 87, J$34 for 90, J$48 for diesel). "
+                               "Select a station to use its measured markup, or enter your own.",
+                               style={"fontSize": "10px", "color": "var(--text-muted)",
+                                      "marginTop": "4px", "maxWidth": "260px"}),
                     ]),
                 ], style={"display": "flex", "flexWrap": "wrap", "padding": "0 20px 16px"}),
             ], open=False, style={
@@ -141,7 +182,23 @@ app.layout = html.Div([
                 "margin": "0 0 20px",
             }),
 
-            html.Div(id="tab-content", style={"padding": "28px 32px"}),
+            html.Div(id="global-settings-summary", style={
+                "backgroundColor": "#EBF5FB", "padding": "10px 16px",
+                "borderRadius": "4px", "fontSize": "13px",
+                "margin": "0 32px 16px",
+            }),
+            html.Div(id="page-header", style={"padding": "0 32px"}),
+            html.Div([
+                html.Div(homepage_layout(),      id="content-home"),
+                html.Div(module1_layout(),       id="content-tab-1"),
+                html.Div(placeholder_layout(),   id="content-tab-2"),
+                html.Div(dcc.Graph(id="tab3-fuel-chart", style={"height": "480px"}), id="content-tab-3"),
+                html.Div(module4_layout(),       id="content-tab-4"),
+                html.Div(module5_layout(),       id="content-tab-5"),
+                html.Div(module6_layout(),       id="content-tab-6"),
+                html.Div(build_module7_layout(), id="content-tab-7"),
+                html.Div(module8_layout(),       id="content-tab-8"),
+            ], id="tab-content", style={"padding": "0 32px 28px"}),
 
         ], style={"flex": "1", "overflow": "auto", "backgroundColor": "var(--page-bg)"}),
 
@@ -149,7 +206,222 @@ app.layout = html.Div([
 
 ], style={"display": "flex", "flexDirection": "column", "height": "100vh"})
 
-USD_TO_JMD = 156.0   # BOJ mid-rate, approximate 2025-2026
+USD_TO_JMD = get_live_exchange_rate(fallback=156.0)
+print(f"[startup] USD/JMD rate loaded: {USD_TO_JMD:.4f}")
+
+# ── Kingston retail markup data ──────────────────────────────────
+# Derived from field survey of 15 Kingston stations across 3 survey dates
+# in June-July 2026, 113 total station-date-grade observations.
+KINGSTON_RETAIL_MARKUP_AVG = {
+    "g87":    29,   # J$/L above Petrojam reference for 87 octane
+    "g90":    34,   # J$/L above Petrojam reference for 90 octane
+    "diesel": 48,   # J$/L above Petrojam reference for automotive diesel
+}
+
+# Only stations with complete data across all three survey dates for all three
+# grades, 9 observations per station. Averages rounded to nearest whole J$/L.
+# Sorted from lowest to highest markup.
+KINGSTON_STATION_MARKUPS = [
+    {"label": "Average across all Kingston stations",                              "markup": None,     "note": "Uses grade-specific mean above"},
+    {"label": "Custom — enter full retail price (J$/L)",                          "markup": "custom", "note": ""},
+    {"label": "Michael's Service Station (South Camp Road)",                       "markup": 15,       "note": "Lowest markup in complete-data set"},
+    {"label": "Johnson's Petroleum (Beechwood Ave)",                               "markup": 25,       "note": ""},
+    {"label": "Total Energies (National Heroes Circle)",                           "markup": 28,       "note": ""},
+    {"label": "Total Energies Half Way Tree Clock Tower",                          "markup": 29,       "note": ""},
+    {"label": "RUBiS Half Way Tree Clock Tower",                                   "markup": 30,       "note": ""},
+    {"label": "Fesco Future Energy Source (Beechwood Ave)",                        "markup": 32,       "note": ""},
+    {"label": "Texaco (Oxford Road, Half Way Tree)",                               "markup": 35,       "note": ""},
+    {"label": "Boot Dunrobin Service Station (Dunrobin Ave)",                      "markup": 39,       "note": ""},
+    {"label": "RUBiS (Upper Waterloo Road)",                                       "markup": 46,       "note": ""},
+    {"label": "RUBiS (Hope Road)",                                                 "markup": 55,       "note": ""},
+    {"label": "Total Energies (Hope Road)",                                        "markup": 65,       "note": "Highest markup in complete-data set"},
+]
+
+# ── Module 6: Taxi Feasibility constants ──────────────────────────
+TAXI_VEHICLES = {
+    "probox": {
+        "label": "Toyota Probox 1.5 (used, ICE baseline)",
+        "type": "ICE",
+        "price_jmd": 1_650_000,   # Jacars.net asking prices June-July 2026, midpoint of range J$0.85M-J$2.35M
+        "consumption_urban": 10.7,  # L/100km, real-world urban (inCarDoc user data, 1NZ-FE 1.5L)
+        "consumption_combined": 7.6,  # L/100km, real-world combined (inCarDoc)
+        "annual_maintenance_jmd": 120_000,
+        "notes": "Real-world urban consumption 10.7 L/100km, combined 7.6 L/100km. Price is asking price, not confirmed sale."
+    },
+    "yuan_plus": {
+        "label": "BYD Yuan Plus 2024 (new, primary EV)",
+        "type": "EV",
+        "price_jmd": None,
+        "price_estimate_jmd": 7_670_000,  # ATL Automotive listing (atlautomotive.com, July 2026), converted at J$158/USD
+        "consumption_measured": 16.3,  # kWh/100km, weighted from field trip data across 16 legs
+        "battery_kwh": 49.92,
+        "range_km_realistic": 340,
+        "annual_maintenance_jmd": 40_000,
+        "notes": "Consumption 16.3 kWh/100km is own field-trip measurement across 16 Kingston route legs, not manufacturer spec. Price J$7,670,000 confirmed from ATL Automotive listing (atlautomotive.com, July 2026), converted at J$158/USD."
+    },
+    "leaf": {
+        "label": "Nissan Leaf 40kWh (used, budget EV)",
+        "type": "EV",
+        "price_jmd": 3_200_000,
+        "consumption_measured": 18.0,  # kWh/100km, estimate for Jamaican urban conditions with AC
+        "battery_kwh": 40.0,
+        "range_km_realistic": 180,
+        "annual_maintenance_jmd": 45_000,
+        "notes": "180km realistic range means multiple public charging sessions per shift may be required. Battery degradation is a real concern for taxi-duty cycles in Jamaican heat."
+    },
+}
+
+TAXI_DAY_PEAK_HOURS = 8
+TAXI_DAY_OFFPEAK_HOURS = 4
+TAXI_TRIPS_PER_HOUR_PEAK = 4
+TAXI_TRIPS_PER_HOUR_OFFPEAK = 2
+DEFAULT_FARE_PER_TRIP = 200
+DEFAULT_PASSENGERS_PER_TRIP = 5
+DEFAULT_TRIP_KM = 5
+DEFAULT_LOAN_RATE_PCT = 11.0
+DEFAULT_LOAN_YEARS = 4
+DEFAULT_DOWNPAYMENT_PCT = 20
+FLEET_HQ_CHARGE_RATE_JMD_PER_KWH = 60
+
+# ── Module 4: Fleet Penetration Simulator ────────────────────────
+FLEET_BASELINES = {
+    "private": {
+        "label": "Private Vehicle Fleet",
+        "size_2015": 190_000,   # CEIC / OICA, Dec 2015 (published anchor, oldest solid data point)
+        "current_estimate": 240_000,  # placeholder estimate assuming ~2.5% annual growth
+        "current_source": "PLACEHOLDER: extrapolated from CEIC/OICA 2015 anchor. Not confirmed by STATIN or Transport Authority.",
+        "target_pct_2030": 12,
+        "km_per_year_avg": 12_000,
+        "km_source": "PLACEHOLDER: international average for private vehicles, no Jamaica-specific figure",
+        "avg_consumption_l_per_100km": 8.0,
+        "avg_purchase_price_jmd": 4_500_000,
+        "annual_ev_imports_2023": 280,   # MSTT via Jamaica Observer
+    },
+    "public": {
+        "label": "Public Transport Fleet",
+        "size_2015": None,
+        "current_estimate": 400,
+        "current_source": "JUTC operable fleet approximately 350–450 buses as of mid-2025 (Jamaica Gleaner, July 2025; Dr. L.-R. Harris, personal communication, July 2026). Covers JUTC formal buses only. Minibuses and route taxis are not included.",
+        "target_pct_2030": 16,
+        "km_per_year_avg": 40_000,
+        "km_source": "PLACEHOLDER: taxi/bus estimate based on Kingston route data",
+        "avg_consumption_l_per_100km": 10.0,
+        "avg_purchase_price_jmd": 2_500_000,
+        "annual_ev_imports_2023": None,
+    },
+    "goj": {
+        "label": "Government of Jamaica Fleet",
+        "size_2015": None,
+        "current_estimate": 3_500,   # placeholder
+        "current_source": "PLACEHOLDER: rough estimate. METT has not confirmed a GOJ fleet total.",
+        "target_pct_2030": 100,
+        "km_per_year_avg": 15_000,
+        "km_source": "PLACEHOLDER: rough government use estimate",
+        "avg_consumption_l_per_100km": 9.0,
+        "avg_purchase_price_jmd": 5_000_000,
+        "annual_ev_imports_2023": None,
+    },
+}
+
+SCURVE_DEFAULTS = {
+    "private": {"steepness": 0.6, "midpoint_year": 2032},
+    "public":  {"steepness": 0.7, "midpoint_year": 2033},
+    "goj":     {"steepness": 0.9, "midpoint_year": 2028},
+}
+
+SCURVE_PRESETS = {
+    "private": {
+        "conservative": {
+            "steepness": 0.4,
+            "midpoint_year": 2038,
+            "note": (
+                "Consistent with the current import rate (~280 EVs/year for the private fleet). "
+                "No major new demand incentives assumed beyond the existing duty exemption. "
+                "Reaches approximately 0.5% penetration by 2030."
+            ),
+        },
+        "base": {
+            "steepness": 0.6,
+            "midpoint_year": 2032,
+            "note": (
+                "Moderate infrastructure expansion and some policy follow-through, "
+                "but no feebates or direct purchase subsidies. "
+                "Reaches approximately 2.8% penetration by 2030."
+            ),
+        },
+        "optimistic": {
+            "steepness": 1.0,
+            "midpoint_year": 2029,
+            "note": (
+                "Strong policy package: feebates, subsidised public charging, "
+                "and an active consumer awareness programme. "
+                "Reaches approximately 8.8% penetration by 2030 -- still short of the 12% target."
+            ),
+        },
+    },
+    "public": {
+        "conservative": {
+            "steepness": 0.4,
+            "midpoint_year": 2039,
+            "note": (
+                "Slow fleet replacement cycle with limited public financing for electric buses "
+                "and minibuses. JUTC pilot does not scale significantly before 2030. "
+                "Reaches approximately 0.4% penetration by 2030."
+            ),
+        },
+        "base": {
+            "steepness": 0.7,
+            "midpoint_year": 2033,
+            "note": (
+                "JUTC pilot expands moderately. Minibus and route taxi EV uptake begins "
+                "in the late 2020s but is constrained by financing and charging access. "
+                "Reaches approximately 1.7% penetration by 2030."
+            ),
+        },
+        "optimistic": {
+            "steepness": 1.1,
+            "midpoint_year": 2030,
+            "note": (
+                "Government-led procurement with international financing accelerates "
+                "JUTC fleet transition. Concessional loans available to route taxi operators. "
+                "Reaches approximately 8% penetration by 2030 -- still short of the 16% target."
+            ),
+        },
+    },
+    "goj": {
+        "conservative": {
+            "steepness": 0.5,
+            "midpoint_year": 2035,
+            "note": (
+                "Budget constraints and slow procurement cycles delay the transition well past 2030. "
+                "Reaches approximately 7.6% penetration by 2030 -- far short of the 100% target."
+            ),
+        },
+        "base": {
+            "steepness": 0.9,
+            "midpoint_year": 2028,
+            "note": (
+                "Policy commitment partially delivered with some procurement delays. "
+                "Fleet electrification proceeds but falls short of 100% by 2030. "
+                "Reaches approximately 85.8% penetration by 2030."
+            ),
+        },
+        "optimistic": {
+            "steepness": 1.3,
+            "midpoint_year": 2027,
+            "note": (
+                "Full budget commitment with a dedicated EV procurement programme. "
+                "GOJ fleet leads national electrification. "
+                "Reaches approximately 98% penetration by 2030 -- effectively on track."
+            ),
+        },
+    },
+}
+
+# Jamaica Customs Agency FAQ: ICE import duty 20% + GCT 15% + levies.
+# Rough project estimate on J$4.5M average vehicle. Actual varies with engine size and SCT.
+ICE_IMPORT_REVENUE_PER_VEHICLE_JMD = 1_400_000
+EV_IMPORT_REVENUE_PER_VEHICLE_JMD  =   200_000   # duty-exempt, GCT-exempt; residual fees only
 
 # ── Module 8: Caribbean Regional Comparison Data ───────────────────
 # Sources:
@@ -254,12 +526,48 @@ REGIONAL_DATA = [
         "fuel_price_usd_per_litre": 1.60,
         "source_year": 2021,
     },
+    {
+        "country": "Dominican Republic",
+        "region": "Caribbean",
+        "ev_sales_share_pct": 0.7,
+        "ev_fleet_total": 11169,
+        "charging_stations": None,
+        "key_policy": "Zero import duty on EVs; declining imports since 2022 peak (647 units in 2025 vs 2,732 in 2022); 150 electric school buses deployed; grid intensity 0.601 kg CO2/kWh (higher than Jamaica)",
+        "import_duty_ev_pct": 0.0,
+        "fuel_price_usd_per_litre": 1.30,
+        "source_year": 2025,
+        "source_url": "https://dominicantoday.com/dr/local/2025/11/23/the-import-of-electric-cars-shows-a-sustained-decline-in-the-dominican-republic/",
+    },
+    {
+        "country": "Bahamas",
+        "region": "Caribbean",
+        "ev_sales_share_pct": 13.0,
+        "ev_fleet_total": 530,
+        "charging_stations": None,
+        "key_policy": "10% import duty on EVs under US$70,000, 25% above; government targets 50% new auto EV sales by 2035; ~200,000 registered vehicles nationally; dealer-led adoption pattern",
+        "import_duty_ev_pct": 10.0,
+        "fuel_price_usd_per_litre": 1.30,
+        "source_year": 2025,
+        "source_url": "https://www.tribune242.com/news/2025/nov/10/quite-a-jump-govt-targeting-50-electric-vehicle-share-by-2035/",
+    },
+    {
+        "country": "Guyana",
+        "region": "Caribbean",
+        "ev_sales_share_pct": None,
+        "ev_fleet_total": 116,
+        "charging_stations": 6,
+        "key_policy": "100% duty-free and tax-free EV imports (strongest incentive in region); paradox of oil-producing country with slow uptake; 6 GEA charging stations along coast; electricity historically US$0.32/kWh, projected to halve with 2024 gas-to-energy project",
+        "import_duty_ev_pct": 0.0,
+        "fuel_price_usd_per_litre": 1.10,
+        "source_year": 2024,
+        "source_url": "https://oilnow.gy/news/worlds-largest-ev-brand-now-in-guyana-adding-momentum-to-vehicle-transition/",
+    },
 ]
 
 
 # ── Module 5: Emissions Data ───────────────────────────────────────
 # Sources:
-#   MSETT (2023). 2022 Jamaica Integrated Resource Plan.
+#   METT (2023). 2022 Jamaica Integrated Resource Plan.
 #   Grid CO2 intensity derived from:
 #     2022: 2.1 Mt CO2 / 4,425 GWh = 0.474 kg CO2/kWh
 #     2030: 1.29 Mt CO2 / 4,688 GWh = 0.275 kg CO2/kWh (50% RE target)
@@ -295,8 +603,7 @@ BEV_MANUFACTURING_CO2_PREMIUM = {
     "byd-yuan-plus-new":    8.1,
     "byd-seal-new":         9.5,
     "byd-sealion7-new":    12.4,
-    "byd-atto3-new":        9.6,
-    "mg-zs-ev-new":         8.2,
+    "byd-atto8-new":       12.0,
     "nissan-leaf-used":     5.8,
     "hyundai-kona-ev-used": 9.0,
     "kia-soul-ev-used":     9.0,
@@ -500,7 +807,7 @@ def module8_layout():
             "Sources: IEA Global EV Outlook 2026 (iea.org); OLADE EV Fleet Report 2024 "
             "(olade.org); CARILEC (2025); Jamaica Gleaner (2023); OUR Jamaica (2021). "
             "Sales share figures refer to new car sales in the most recent reported year. "
-            "Jamaica 2030 targets from MSETT National Electric Vehicle Policy (2023).",
+            "Jamaica 2030 targets from METT National Electric Vehicle Policy (2023).",
             style={"fontSize": "11px", "color": "#999",
                    "marginTop": "14px", "borderTop": "1px solid #eee",
                    "paddingTop": "10px"}
@@ -509,123 +816,276 @@ def module8_layout():
 
 
 def module1_layout():
-    card = {
-        "backgroundColor": "#ffffff", "border": "1px solid #e0e0e0",
-        "borderRadius": "6px", "padding": "20px", "flex": "1", "minWidth": "260px",
-    }
-    lbl = {"fontSize": "12px", "fontWeight": "600", "color": "#555", "marginBottom": "4px"}
-    inp = {
-        "width": "100%", "padding": "6px 8px", "fontSize": "13px",
-        "border": "1px solid #ccc", "borderRadius": "4px",
-        "marginBottom": "14px", "boxSizing": "border-box",
-    }
-    note = {"fontSize": "11px", "color": "#888", "marginTop": "-10px", "marginBottom": "14px"}
+    lbl = {"fontSize": "12px", "fontWeight": "600", "color": "#555",
+           "marginBottom": "4px", "display": "block"}
+    inp = {"width": "100%", "padding": "6px 8px", "fontSize": "13px",
+           "border": "1px solid #ccc", "borderRadius": "4px",
+           "marginBottom": "6px", "boxSizing": "border-box"}
+    hint = {"fontSize": "11px", "color": "#888", "marginBottom": "10px", "marginTop": "2px"}
+    det_sum = {"cursor": "pointer", "fontWeight": "600", "fontSize": "13px",
+               "padding": "6px 0", "marginBottom": "8px"}
+    det_style = {"backgroundColor": "#fff", "border": "1px solid #e0e0e0",
+                 "borderRadius": "6px", "padding": "14px 16px", "marginBottom": "10px"}
 
     ice_opts = get_ice_dropdown_options()
     ev_opts  = get_bev_dropdown_options()
     d_ice, d_ev = "toyota-yaris-new", "byd-yuan-pro-new"
 
-    return html.Div([
-        html.Div([
-            # ICE column
-            html.Div([
-                html.H4("ICE Vehicle", style={"color": "#C55A11", "marginTop": "0", "marginBottom": "16px"}),
-                html.Label("Select model", style=lbl),
-                dcc.Dropdown(id="m1-ice-dropdown", options=ice_opts, value=d_ice,
-                             clearable=False, style={"fontSize": "13px", "marginBottom": "14px"}),
-                html.Label("Purchase price (J$)", style=lbl),
-                dcc.Input(id="m1-ice-price", type="number", debounce=True,
-                          value=ICE_VEHICLES[d_ice]["price_jmd"], style=inp),
-                html.Label("Fuel consumption (L/100km)", style=lbl),
-                dcc.Input(id="m1-ice-consumption", type="number", debounce=True,
-                          value=ICE_VEHICLES[d_ice]["consumption_per_100km"], step=0.1, style=inp),
-                html.P("Real-world estimates for Jamaican driving. Adjust as needed.", style=note),
-            ], style=card),
+    left_panel = html.Div([
+        html.Details([
+            html.Summary("Vehicle selection and costs", style=det_sum),
 
-            html.Div(style={"width": "20px"}),
+            html.H5("ICE Vehicle",
+                    style={"color": "#C55A11", "marginTop": "4px", "marginBottom": "10px"}),
+            html.Label("Select model", style=lbl),
+            dcc.Dropdown(id="m1-ice-dropdown", options=ice_opts, value=d_ice,
+                         clearable=False, style={"fontSize": "13px", "marginBottom": "10px"}),
+            html.Label("Purchase price (J$)", style=lbl),
+            dcc.Input(id="m1-ice-price", type="number", debounce=True,
+                      value=ICE_VEHICLES[d_ice]["price_jmd"], style=inp),
+            html.P("Auto-filled from selected model. Update with a confirmed sale price.", style=hint),
+            html.Label("Fuel consumption (L/100km)", style=lbl),
+            dcc.Input(id="m1-ice-consumption", type="number", debounce=True,
+                      value=ICE_VEHICLES[d_ice]["consumption_per_100km"], step=0.1, style=inp),
+            dcc.Slider(id="m1-ice-consumption-slider", min=3, max=25, step=0.1,
+                       value=ICE_VEHICLES[d_ice]["consumption_per_100km"],
+                       marks={3: "3", 10: "10", 17: "17", 25: "25"},
+                       tooltip={"placement": "bottom", "always_visible": False}),
+            html.P("Real-world estimates for Jamaican urban driving. Move slider or type to adjust.", style=hint),
 
-            # EV column
-            html.Div([
-                html.H4("Electric Vehicle", style={"color": "#1A7A6E", "marginTop": "0", "marginBottom": "16px"}),
-                html.Label("Select model", style=lbl),
-                dcc.Dropdown(id="m1-ev-dropdown", options=ev_opts, value=d_ev,
-                             clearable=False, style={"fontSize": "13px", "marginBottom": "14px"}),
-                html.Label("Purchase price (J$)", style=lbl),
-                dcc.Input(id="m1-ev-price", type="number", debounce=True,
-                          placeholder="Enter dealer quote", value=None, style=inp),
-                html.Div(id="m1-ev-note",
-                         children=html.P(
-                             f"Range: {BEV_VEHICLES[d_ev]['range_km_nedc']} km (NEDC). "
-                             "Price not publicly listed by the authorized dealer — enter a confirmed dealer quote.",
-                             style=note)),
-                html.Label("Energy consumption (kWh/100km)", style=lbl),
-                dcc.Input(id="m1-ev-consumption", type="number", debounce=True,
-                          value=BEV_VEHICLES[d_ev]["consumption_per_100km"], step=0.1, style=inp),
-                html.P("Estimated from battery capacity and NEDC range. Adjust as needed.", style=note),
-            ], style=card),
-        ], style={"display": "flex", "gap": "20px", "marginBottom": "20px", "flexWrap": "wrap"}),
+            html.Hr(style={"margin": "10px 0", "borderColor": "#eee"}),
 
-        html.Div([
-            html.Label("Daily driving distance",
-                       style={"fontSize": "12px", "fontWeight": "600", "color": "#555", "marginRight": "12px"}),
-            dcc.Input(id="m1-daily-km", type="number", debounce=True, value=50, min=1, max=500,
-                      style={"width": "100px", "padding": "6px 8px", "fontSize": "13px",
-                             "border": "1px solid #ccc", "borderRadius": "4px"}),
-            html.Span(" km per day", style={"fontSize": "13px", "color": "#555", "marginLeft": "8px"}),
-        ], style={"backgroundColor": "#fff", "border": "1px solid #e0e0e0",
-                  "borderRadius": "6px", "padding": "14px 20px", "marginBottom": "20px"}),
+            html.H5("Electric Vehicle",
+                    style={"color": "#1A7A6E", "marginTop": "4px", "marginBottom": "10px"}),
+            html.Label("Select model", style=lbl),
+            dcc.Dropdown(id="m1-ev-dropdown", options=ev_opts, value=d_ev,
+                         clearable=False, style={"fontSize": "13px", "marginBottom": "10px"}),
+            html.Label("Purchase price (J$)", style=lbl),
+            dcc.Input(id="m1-ev-price", type="number", debounce=True,
+                      placeholder="Enter dealer quote", value=None, style=inp),
+            html.Div(id="m1-ev-note",
+                     children=html.P(
+                         f"Range: {BEV_VEHICLES[d_ev]['range_km_nedc']} km (NEDC). "
+                         "Price not publicly listed — enter a confirmed dealer quote.",
+                         style=hint)),
+            html.Label("Energy consumption (kWh/100km)", style=lbl),
+            dcc.Input(id="m1-ev-consumption", type="number", debounce=True,
+                      value=BEV_VEHICLES[d_ev]["consumption_per_100km"], step=0.1, style=inp),
+            dcc.Slider(id="m1-ev-consumption-slider", min=10, max=30, step=0.1,
+                       value=BEV_VEHICLES[d_ev]["consumption_per_100km"],
+                       marks={10: "10", 16: "16", 23: "23", 30: "30"},
+                       tooltip={"placement": "bottom", "always_visible": False}),
+            html.P("Estimated from battery capacity and NEDC range. Adjust for real-world conditions.", style=hint),
+        ], open=True, style=det_style),
 
-        html.Div([
-            html.Label("Ownership period (years)",
-                       style={"fontSize": "12px", "fontWeight": "600", "color": "#555", "marginRight": "12px"}),
-            dcc.Input(id="m1-years", type="number", debounce=True, value=5, min=1, max=20,
-                      style={"width": "80px", "padding": "6px 8px", "fontSize": "13px",
-                             "border": "1px solid #ccc", "borderRadius": "4px"}),
-            html.Span(" years", style={"fontSize": "13px", "color": "#555", "marginLeft": "8px"}),
-        ], style={"backgroundColor": "#fff", "border": "1px solid #e0e0e0",
-                  "borderRadius": "6px", "padding": "14px 20px", "marginBottom": "20px"}),
+        html.Details([
+            html.Summary("Driving and ownership", style=det_sum),
+            html.Label("Daily driving distance (km)", style=lbl),
+            dcc.Input(id="m1-daily-km", type="number", debounce=True, value=50,
+                      min=1, max=500, style=inp),
+            dcc.Slider(id="m1-daily-km-slider", min=1, max=500, step=1, value=50,
+                       marks={1: "1", 100: "100", 250: "250", 500: "500"},
+                       tooltip={"placement": "bottom", "always_visible": False}),
+            html.P("Kingston commuters typically drive 20–80 km/day. Taxis much higher.", style=hint),
+            html.Label("Ownership period (years)", style=lbl),
+            dcc.Input(id="m1-years", type="number", debounce=True, value=5,
+                      min=1, max=20, style=inp),
+            dcc.Slider(id="m1-years-slider", min=1, max=20, step=1, value=5,
+                       marks={1: "1", 5: "5", 10: "10", 15: "15", 20: "20"},
+                       tooltip={"placement": "bottom", "always_visible": False}),
+            html.P("Longer periods show the full benefit of lower EV running costs.", style=hint),
+        ], open=True, style=det_style),
 
-        html.Div(id="m1-results"),
+        html.Details([
+            html.Summary("Charging location", style=det_sum),
+            dcc.RadioItems(
+                id="m1-charging-location",
+                options=[
+                    {"label": " Home only",   "value": "home"},
+                    {"label": " Public only", "value": "public"},
+                    {"label": " Mix of both", "value": "mix"},
+                ],
+                value="home",
+                labelStyle={"display": "block", "fontSize": "13px", "marginBottom": "6px"},
+            ),
+            html.Div(id="m1-charging-mix-inputs", children=[
+                html.Label("% charged at home",
+                           style={"fontSize": "12px", "fontWeight": "500", "display": "block",
+                                  "marginTop": "10px", "marginBottom": "4px"}),
+                dcc.Input(id="m1-home-charge-pct", type="number", debounce=True,
+                          value=70, min=0, max=100, step=1,
+                          style={"width": "100px", "padding": "6px 8px", "fontSize": "13px",
+                                 "border": "1px solid #ccc", "borderRadius": "4px"}),
+                html.Span(" % (rest at public rate)",
+                          style={"fontSize": "12px", "color": "#888", "marginLeft": "8px"}),
+            ], style={"display": "none"}),
+            html.P("Home rate and public rate are set in Global settings above.", style=hint),
+        ], open=True, style=det_style),
+
+        html.Div(id="m1-summary-cards"),
 
         html.P(
-            "ICE prices: Toyota Jamaica (toyotajamaica.com, June 2026), converted at J$158.53/USD "
-            "(exchange-rates.org, June 15, 2026). EV prices: not publicly listed by the authorized "
-            "dealer in Jamaica -- enter a confirmed dealer quote. Consumption figures are estimates "
-            "for Jamaican driving conditions.",
-            style={"fontSize": "11px", "color": "#999", "marginTop": "16px",
-                   "borderTop": "1px solid #eee", "paddingTop": "12px"}),
+            "ICE prices: Toyota Jamaica (toyotajamaica.com, June 2026), converted at J$158.53/USD. "
+            "EV prices: not publicly listed by the authorized dealer in Jamaica — enter a confirmed dealer quote. "
+            "Consumption figures are estimates for Jamaican driving conditions.",
+            style={"fontSize": "11px", "color": "#999", "marginTop": "8px",
+                   "borderTop": "1px solid #eee", "paddingTop": "10px"}),
+    ], style={"width": "38%", "minWidth": "300px", "flexShrink": "0"})
+
+    right_panel = html.Div([
+        html.P(
+            "Enter all required fields to see the Total Cost of Ownership chart.",
+            id="m1-tco-placeholder",
+            style={"color": "#aaa", "fontSize": "13px", "marginTop": "40px",
+                   "textAlign": "center"},
+        ),
+        dcc.Graph(id="m1-tco-fig", style={"display": "none"},
+                  config={"displayModeBar": False}),
+    ], style={
+        "flex": "1", "minWidth": "300px",
+        "position": "sticky", "top": "20px", "alignSelf": "flex-start",
+    })
+
+    return html.Div([
+        html.Div([left_panel, right_panel],
+                 style={"display": "flex", "gap": "24px", "alignItems": "flex-start"}),
     ])
 
 # ── Callbacks ─────────────────────────────────────────────────────
 @app.callback(
-    Output("fuel-price-slider", "value"),
-    Input("fuel-grade-select", "value"),
-    prevent_initial_call=True
+    Output("markup-custom-input-wrapper", "style"),
+    Input("markup-station-select", "value"),
 )
-def update_fuel_price_from_grade(grade):
-    return round(latest_prices.get(grade, latest_prices["g90"]))
+def toggle_custom_markup_input(station_idx):
+    if station_idx is None:
+        return {"display": "none"}
+    if KINGSTON_STATION_MARKUPS[station_idx]["markup"] == "custom":
+        return {"display": "block"}
+    return {"display": "none"}
+
+
+@app.callback(
+    Output("effective-fuel-price-store", "data"),
+    Output("effective-fuel-price-display", "children"),
+    Input("fuel-grade-select", "value"),
+    Input("markup-station-select", "value"),
+    Input("markup-custom-input", "value"),
+)
+def compute_effective_fuel_price(grade, station_idx, custom_markup):
+    if grade is None:
+        return None, ""
+    ref_price = latest_prices.get(grade)
+    if ref_price is None:
+        return None, ""
+
+    if station_idx is None:
+        markup = KINGSTON_RETAIL_MARKUP_AVG.get(grade, 34)
+        markup_source = "Kingston average"
+    else:
+        station = KINGSTON_STATION_MARKUPS[station_idx]
+        if station["markup"] is None:
+            markup = KINGSTON_RETAIL_MARKUP_AVG.get(grade, 34)
+            markup_source = "Kingston average"
+        elif station["markup"] == "custom":
+            if custom_markup is not None and custom_markup > 0:
+                implied_markup = custom_markup - ref_price
+                markup = implied_markup
+                effective = round(custom_markup, 2)
+                display = (
+                    f"Full retail price J${effective:.2f}/L "
+                    f"(implies markup of J${implied_markup:.2f}/L above Petrojam reference)"
+                )
+                return effective, display
+            markup = 0
+            markup_source = "custom (no price entered)"
+        else:
+            markup = station["markup"]
+            markup_source = station["label"]
+
+    effective = round(ref_price + markup, 2)
+    display = f"Petrojam J${ref_price:.2f} + markup J${markup:.2f} = J${effective:.2f}/L ({markup_source})"
+    return effective, display
+
+
+@app.callback(
+    Output("global-settings-summary", "children"),
+    Input("effective-fuel-price-store", "data"),
+    Input("electricity-rate-slider", "value"),
+)
+def update_global_settings_summary(effective_price, electricity_rate):
+    fuel_display = f"J${effective_price}/L" if effective_price else "not set"
+    return html.P([
+        html.Strong("Active global settings: "),
+        f"Fuel price = {fuel_display}",
+        f"   |   Electricity rate = J${electricity_rate}/kWh",
+    ], style={"fontSize": "13px", "color": "#444", "margin": "0"})
+
+
+@app.callback(
+    Output("m6-fuel-price-prompt", "children"),
+    Input("effective-fuel-price-store", "data"),
+)
+def show_fuel_price_prompt(effective_price):
+    if effective_price is None:
+        return html.Div([
+            html.P("Select a fuel grade in Global settings to enable Module 1, 5, and 6 calculations.",
+                   style={"margin": "0", "fontSize": "13px", "color": "#856404"}),
+        ], style={
+            "backgroundColor": "#FFF9E6",
+            "border": "1px solid #E0A106",
+            "borderLeft": "4px solid #E0A106",
+            "borderRadius": "6px",
+            "padding": "10px 16px",
+            "margin": "0 32px 12px",
+        })
+    return None
+
+
 @app.callback(
     Output("m1-ice-price", "value"),
-    Output("m1-ice-consumption", "value"),
     Input("m1-ice-dropdown", "value")
 )
 def update_ice_inputs(model_key):
-    v = ICE_VEHICLES[model_key]
-    return v["price_jmd"], v["consumption_per_100km"]
+    return ICE_VEHICLES[model_key]["price_jmd"]
 
 
 @app.callback(
-    Output("m1-ev-consumption", "value"),
-    Output("m1-ev-note", "children"),
+    Output("m1-ev-note",  "children"),
+    Output("m1-ev-price", "value"),
     Input("m1-ev-dropdown", "value")
 )
 def update_ev_inputs(model_key):
     v = BEV_VEHICLES[model_key]
-    note = html.P(
-        f"Range: {v['range_km_nedc']} km (NEDC). Price not publicly listed by the authorized dealer — enter a confirmed dealer quote.",
-        style={"fontSize": "11px", "color": "#888", "marginTop": "-10px", "marginBottom": "14px"}
-    )
-    return v["consumption_per_100km"], note
+    price = v.get("price_jmd")
+    source = v.get("price_source")
+    if price is not None and source:
+        note = html.Div([
+            html.P(
+                f"Range: {v.get('range_km_nedc')} km (NEDC). "
+                f"Price auto-filled from {source}. "
+                "You may override this with a negotiated price.",
+                style={"fontSize": "11px", "color": "#2d8a2d",
+                       "marginTop": "2px", "marginBottom": "10px"},
+            ),
+        ])
+    else:
+        note = html.P(
+            f"Range: {v.get('range_km_nedc')} km (NEDC). "
+            "Price not publicly listed — enter a confirmed dealer quote.",
+            style={"fontSize": "11px", "color": "#888",
+                   "marginTop": "2px", "marginBottom": "10px"},
+        )
+    return note, price
+
+
+@app.callback(
+    Output("m1-charging-mix-inputs", "style"),
+    Input("m1-charging-location", "value")
+)
+def toggle_charging_mix_input(location):
+    if location == "mix":
+        return {"display": "block"}
+    return {"display": "none"}
 
 
 @app.callback(
@@ -645,7 +1105,8 @@ def m5_update_ev(model_key):
 
 
 @app.callback(
-    Output("m5-results", "children"),
+    Output("m5-cards",   "children"),
+    Output("m5-co2-fig", "figure"),
     Input("m5-ice-dropdown", "value"),
     Input("m5-ice-consumption", "value"),
     Input("m5-ev-dropdown", "value"),
@@ -656,9 +1117,18 @@ def m5_update_ev(model_key):
 )
 def calculate_module5(ice_key, ice_consumption, ev_key, ev_consumption,
                       daily_km, years, grid_scenario):
+    empty_fig = go.Figure()
+    empty_fig.update_layout(
+        plot_bgcolor="#ffffff", paper_bgcolor="#ffffff",
+        xaxis={"visible": False}, yaxis={"visible": False},
+        annotations=[{"text": "Fill in inputs to see the CO2 chart.",
+                      "xref": "paper", "yref": "paper", "x": 0.5, "y": 0.5,
+                      "showarrow": False, "font": {"size": 13, "color": "#aaa"}}],
+    )
     if not all([ice_consumption, ev_consumption, daily_km, years, grid_scenario]):
-        return html.P("Enter all inputs to see results.",
-                      style={"color": "#888", "fontSize": "13px"})
+        return (html.P("Enter all inputs to see results.",
+                       style={"color": "#888", "fontSize": "13px"}),
+                empty_fig)
 
     years = int(years)
     grid = GRID_SCENARIOS[grid_scenario]
@@ -675,8 +1145,11 @@ def calculate_module5(ice_key, ice_consumption, ev_key, ev_consumption,
     lifetime_co2_ev  = annual_co2_ev  * years + mfg_premium_kg
 
     annual_saving = annual_co2_ice - annual_co2_ev
-    carbon_payback_yrs = float("inf")
-    if annual_saving > 0:
+    if annual_saving <= 0:
+        carbon_payback_yrs = None
+        payback_text = "BEV emits more per km at this grid mix"
+        payback_col  = "#C0392B"
+    else:
         carbon_payback_yrs = mfg_premium_kg / annual_saving
         if carbon_payback_yrs <= 20:
             payback_text = f"{carbon_payback_yrs:.1f} years"
@@ -684,53 +1157,38 @@ def calculate_module5(ice_key, ice_consumption, ev_key, ev_consumption,
         else:
             payback_text = f"{carbon_payback_yrs:.1f} years (beyond 20yr horizon)"
             payback_col  = "#E07B22"
-    else:
-        payback_text = "BEV emits more per km at this grid mix"
-        payback_col  = "#C0392B"
 
-    banner = {
-        "backgroundColor": "#E1F5EE", "color": "#0E2A24",
-        "fontWeight": "700", "fontSize": "15px",
-        "padding": "10px 18px", "marginBottom": "12px",
-        "marginTop": "8px", "borderRadius": "2px",
-    }
     card = {
         "backgroundColor": "#ffffff", "border": "1px solid #e0e0e0",
-        "borderRadius": "6px", "padding": "16px 20px",
-        "flex": "1", "minWidth": "160px", "textAlign": "center",
+        "borderRadius": "6px", "padding": "12px 14px",
+        "flex": "1", "minWidth": "130px", "textAlign": "center",
     }
-    big  = {"fontSize": "22px", "fontWeight": "700", "margin": "6px 0"}
+    big  = {"fontSize": "18px", "fontWeight": "700", "margin": "4px 0"}
     tiny = {"fontSize": "12px", "color": "#777", "margin": "0"}
 
     cards = html.Div([
-        html.Div([
-            html.P("Annual ICE CO2", style=tiny),
-            html.P(f"{annual_co2_ice/1000:.2f} t", style={**big, "color": "#C55A11"}),
-        ], style=card),
-        html.Div([
-            html.P("Annual BEV CO2", style=tiny),
-            html.P(f"{annual_co2_ev/1000:.2f} t", style={**big, "color": "#1A7A6E"}),
-        ], style=card),
-        html.Div([
-            html.P("Annual CO2 saving", style=tiny),
-            html.P(f"{(annual_co2_ice - annual_co2_ev)/1000:.2f} t",
-                   style={**big, "color": "#2d8a2d" if annual_co2_ice > annual_co2_ev
-                          else "#C0392B"}),
-        ], style=card),
-        html.Div([
-            html.P(f"Lifetime CO2 -- ICE ({years} yrs)", style=tiny),
-            html.P(f"{lifetime_co2_ice/1000:.1f} t", style={**big, "color": "#C55A11"}),
-        ], style=card),
-        html.Div([
-            html.P("Lifetime CO2 -- BEV incl. manufacturing", style=tiny),
-            html.P(f"{lifetime_co2_ev/1000:.1f} t", style={**big, "color": "#1A7A6E"}),
-        ], style=card),
-        html.Div([
-            html.P("Carbon payback period", style=tiny),
-            html.P(payback_text, style={**big, "color": payback_col, "fontSize": "16px"}),
-        ], style=card),
-    ], style={"display": "flex", "gap": "12px", "flexWrap": "wrap",
-              "marginBottom": "20px"})
+        html.Div([html.P("Annual ICE CO2", style=tiny),
+                  html.P(f"{annual_co2_ice/1000:.2f} t",
+                         style={**big, "color": "#C55A11"})], style=card),
+        html.Div([html.P("Annual BEV CO2", style=tiny),
+                  html.P(f"{annual_co2_ev/1000:.2f} t",
+                         style={**big, "color": "#1A7A6E"})], style=card),
+        html.Div([html.P("Annual CO2 saving", style=tiny),
+                  html.P(f"{(annual_co2_ice - annual_co2_ev)/1000:.2f} t",
+                         style={**big, "color": "#2d8a2d"
+                                if annual_co2_ice > annual_co2_ev else "#C0392B"})],
+                 style=card),
+        html.Div([html.P(f"Lifetime ICE ({years} yr)", style=tiny),
+                  html.P(f"{lifetime_co2_ice/1000:.1f} t",
+                         style={**big, "color": "#C55A11"})], style=card),
+        html.Div([html.P("Lifetime BEV incl. mfg", style=tiny),
+                  html.P(f"{lifetime_co2_ev/1000:.1f} t",
+                         style={**big, "color": "#1A7A6E"})], style=card),
+        html.Div([html.P("Carbon payback", style=tiny),
+                  html.P(payback_text,
+                         style={**big, "color": payback_col, "fontSize": "14px"})],
+                 style=card),
+    ], style={"display": "flex", "gap": "8px", "flexWrap": "wrap", "marginTop": "12px"})
 
     year_list      = list(range(0, years + 1))
     ice_cumulative = [annual_co2_ice * y / 1000 for y in year_list]
@@ -748,7 +1206,7 @@ def calculate_module5(ice_key, ice_consumption, ev_key, ev_consumption,
         name="BEV cumulative CO2 (incl. manufacturing)",
         line=dict(color="#1A7A6E", width=2), marker=dict(size=6),
     ))
-    if 0 < carbon_payback_yrs <= years:
+    if carbon_payback_yrs is not None and 0 < carbon_payback_yrs <= years:
         fig.add_vline(
             x=carbon_payback_yrs,
             line_dash="dash", line_color="#2d8a2d",
@@ -764,50 +1222,62 @@ def calculate_module5(ice_key, ice_consumption, ev_key, ev_consumption,
         yaxis=dict(title="Cumulative CO2 (tonnes)"),
         plot_bgcolor="#ffffff",
         paper_bgcolor="#ffffff",
-        legend=dict(orientation="h", yanchor="bottom", y=1.02,
-                    xanchor="left", x=0),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
         hovermode="x unified",
-        height=380,
+        height=440,
         margin=dict(l=60, r=40, t=70, b=50),
     )
 
-    grid_note = (
-        f"Grid scenario: {grid['label']} -- "
-        f"{intensity} kg CO2/kWh. "
-        f"BEV manufacturing CO2 premium: {mfg_premium_t:.1f} tonnes "
-        f"(IEA lifecycle estimate). "
-        f"Petrol: {CO2_PER_LITRE_PETROL} kg CO2/litre."
-    )
-
-    return html.Div([
-        html.Div("Emissions Results", style=banner),
-        cards,
-        html.Div("Cumulative CO2 Trajectory", style=banner),
-        dcc.Graph(figure=fig, config={"displayModeBar": False}),
-        html.P(grid_note, style={"fontSize": "11px", "color": "#888",
-                                  "marginTop": "8px"}),
-    ])
+    return cards, fig
 
 
 @app.callback(
-    Output("m1-results", "children"),
+    Output("m1-summary-cards", "children"),
+    Output("m1-tco-fig", "figure"),
+    Output("m1-tco-fig", "style"),
+    Output("m1-tco-placeholder", "style"),
     Input("m1-ice-price", "value"),
     Input("m1-ice-consumption", "value"),
     Input("m1-ev-price", "value"),
     Input("m1-ev-consumption", "value"),
     Input("m1-daily-km", "value"),
-    Input("fuel-price-slider", "value"),
+    Input("effective-fuel-price-store", "data"),
     Input("electricity-rate-slider", "value"),
     Input("m1-years", "value"),
+    Input("m1-ice-dropdown", "value"),
+    Input("m1-ev-dropdown", "value"),
+    Input("public-charging-rate", "value"),
+    Input("m1-charging-location", "value"),
+    Input("m1-home-charge-pct", "value"),
 )
 def calculate_module1(ice_price, ice_consumption, ev_price, ev_consumption,
-                      daily_km, fuel_price, electricity_rate, years):
+                      daily_km, fuel_price, electricity_rate, years,
+                      ice_model_key, ev_model_key,
+                      public_rate, charging_location, home_charge_pct):
+    hide_chart = {"display": "none"}
+    show_chart = {"display": "block"}
+    show_ph    = {}
+    hide_ph    = {"display": "none"}
+    empty_fig  = go.Figure()
+
     if not all([ice_consumption, ev_consumption, daily_km, fuel_price, electricity_rate]):
-        return html.P("Enter all required values to see results.",
-                      style={"color": "#888", "fontSize": "13px"})
+        msg = html.P(
+            "Enter all required values (fuel price in Global settings, consumption, daily distance) to see results.",
+            style={"color": "#888", "fontSize": "13px"},
+        )
+        return msg, empty_fig, hide_chart, show_ph
+
+    if charging_location == "public":
+        effective_ev_rate = public_rate if public_rate else electricity_rate
+    elif charging_location == "mix":
+        home_pct = (home_charge_pct if home_charge_pct is not None else 70) / 100
+        pub_r = public_rate if public_rate else electricity_rate
+        effective_ev_rate = electricity_rate * home_pct + pub_r * (1 - home_pct)
+    else:
+        effective_ev_rate = electricity_rate
 
     cost_km_ice = (ice_consumption / 100) * fuel_price
-    cost_km_ev  = (ev_consumption  / 100) * electricity_rate
+    cost_km_ev  = (ev_consumption  / 100) * effective_ev_rate
     annual_km   = daily_km * 365
     annual_ice  = cost_km_ice * annual_km
     annual_ev   = cost_km_ev  * annual_km
@@ -815,145 +1285,163 @@ def calculate_module1(ice_price, ice_consumption, ev_price, ev_consumption,
 
     rc = {
         "backgroundColor": "#ffffff", "border": "1px solid #e0e0e0",
-        "borderRadius": "6px", "padding": "16px 20px",
-        "flex": "1", "minWidth": "160px", "textAlign": "center",
+        "borderRadius": "6px", "padding": "12px 14px",
+        "flex": "1", "minWidth": "130px", "textAlign": "center",
     }
-    big  = {"fontSize": "22px", "fontWeight": "700", "margin": "6px 0"}
+    big  = {"fontSize": "15px", "fontWeight": "700", "margin": "4px 0"}
     tiny = {"fontSize": "12px", "color": "#777", "margin": "0"}
 
-    cards = [
-        html.Div([html.P("ICE cost per km",     style=tiny),
+    summary_cards = html.Div([
+        html.Div([html.P("ICE fuel cost/km", style=tiny),
                   html.P(f"J${cost_km_ice:.2f}", style={**big, "color": "#C55A11"})], style=rc),
-        html.Div([html.P("EV cost per km",      style=tiny),
+        html.Div([html.P("EV energy cost/km", style=tiny),
                   html.P(f"J${cost_km_ev:.2f}", style={**big, "color": "#1A7A6E"})], style=rc),
-        html.Div([html.P("Annual ICE fuel cost", style=tiny),
-                  html.P(f"J${annual_ice:,.0f}", style={**big, "color": "#C55A11"})], style=rc),
-        html.Div([html.P("Annual EV energy cost", style=tiny),
-                  html.P(f"J${annual_ev:,.0f}", style={**big, "color": "#1A7A6E"})], style=rc),
         html.Div([html.P("Annual savings", style=tiny),
                   html.P(
                       f"J${savings:,.0f}" if savings >= 0 else f"-J${abs(savings):,.0f}",
                       style={**big, "color": "#2E75B6" if savings >= 0 else "#C00000"}
                   )], style=rc),
-    ]
+    ], style={"display": "flex", "gap": "8px", "flexWrap": "wrap",
+              "marginTop": "12px", "marginBottom": "4px"})
 
-    if ice_price and ev_price and savings > 0:
-        diff = ev_price - ice_price
-        if diff <= 0:
-            pb_text, pb_col = "EV is cheaper upfront", "#1A7A6E"
-        else:
-            months = diff / savings
-            pb_text = f"{months:.0f} months ({months/12:.1f} years)"
-            pb_col  = "#2E75B6"
-        cards.append(html.Div([
-            html.P("Fuel cost payback (running costs only)", style=tiny),
-            html.P(pb_text, style={**big, "color": pb_col, "fontSize": "17px"}),
-            html.P("Based on fuel vs energy savings only. See TCO chart for full economic crossover "
-                   "including maintenance and depreciation.",
-                   style={"fontSize": "11px", "color": "#888888", "margin": "4px 0 0"}),
-        ], style=rc))
-    elif not ev_price:
-        cards.append(html.Div([
-            html.P("Fuel cost payback (running costs only)", style=tiny),
-            html.P("Enter EV price to calculate",
-                   style={**big, "fontSize": "13px", "color": "#aaa"}),
-            html.P("Based on fuel vs energy savings only. See TCO chart for full economic crossover "
-                   "including maintenance and depreciation.",
-                   style={"fontSize": "11px", "color": "#888888", "margin": "4px 0 0"}),
-        ], style=rc))
-    else:
-        cards.append(html.Div([
-            html.P("Fuel cost payback (running costs only)", style=tiny),
-            html.P("EV running costs exceed ICE at current rates",
-                   style={**big, "fontSize": "12px", "color": "#C00000"}),
-            html.P("Based on fuel vs energy savings only. See TCO chart for full economic crossover "
-                   "including maintenance and depreciation.",
-                   style={"fontSize": "11px", "color": "#888888", "margin": "4px 0 0"}),
-        ], style=rc))
+    if not ev_price:
+        return summary_cards, empty_fig, hide_chart, show_ph
 
     years = int(years) if years else 5
+    ice_annual_fuel  = (ice_consumption / 100) * fuel_price * daily_km * 365
+    ev_annual_energy = (ev_consumption  / 100) * effective_ev_rate * daily_km * 365
 
-    if ev_price:
-        ice_annual_fuel  = (ice_consumption / 100) * fuel_price * daily_km * 365
-        ev_annual_energy = (ev_consumption  / 100) * electricity_rate * daily_km * 365
+    ice_v = ICE_VEHICLES[ice_model_key]
+    ev_v  = BEV_VEHICLES[ev_model_key]
+    ice_dep_y1, ice_dep_sub, ice_maint = (
+        ice_v["depreciation_y1"], ice_v["depreciation_subsequent"], ice_v["annual_maintenance_jmd"]
+    )
+    ev_dep_y1, ev_dep_sub, ev_maint = (
+        ev_v["depreciation_y1"], ev_v["depreciation_subsequent"], ev_v["annual_maintenance_jmd"]
+    )
 
-        ice_v = next(iter(ICE_VEHICLES.values()))
-        ev_v  = next(iter(BEV_VEHICLES.values()))
-        ice_dep_y1, ice_dep_sub, ice_maint = (
-            ice_v["depreciation_y1"], ice_v["depreciation_subsequent"], ice_v["annual_maintenance_jmd"]
+    ice_cum = [0.0]
+    ev_cum  = [0.0]
+    for y in range(1, years + 1):
+        ice_val = ice_price * (1 - ice_dep_y1) * (1 - ice_dep_sub) ** (y - 1)
+        ice_cum.append((ice_price - ice_val) + (ice_annual_fuel + ice_maint) * y)
+        ev_val  = ev_price  * (1 - ev_dep_y1)  * (1 - ev_dep_sub)  ** (y - 1)
+        ev_cum.append((ev_price - ev_val) + (ev_annual_energy + ev_maint) * y)
+
+    x_yrs = list(range(0, years + 1))
+    crossover = None
+    for i in range(len(x_yrs) - 1):
+        d0, d1 = ice_cum[i] - ev_cum[i], ice_cum[i + 1] - ev_cum[i + 1]
+        if d0 * d1 < 0:
+            crossover = i + d0 / (d0 - d1)
+            break
+
+    fig_tco = go.Figure()
+    fig_tco.add_trace(go.Scatter(
+        x=x_yrs, y=[v / 1_000_000 for v in ice_cum],
+        mode="lines+markers", name="ICE Total Cost",
+        line={"color": "#C55A11", "width": 2}, marker={"size": 6},
+    ))
+    fig_tco.add_trace(go.Scatter(
+        x=x_yrs, y=[v / 1_000_000 for v in ev_cum],
+        mode="lines+markers", name="EV Total Cost",
+        line={"color": "#1A7A6E", "width": 2}, marker={"size": 6},
+    ))
+    if crossover is not None:
+        fig_tco.add_vline(
+            x=crossover, line_dash="dash", line_color="#888",
+            annotation_text=f"Payback ~{crossover:.1f} yrs",
+            annotation_position="top right",
         )
-        ev_dep_y1, ev_dep_sub, ev_maint = (
-            ev_v["depreciation_y1"], ev_v["depreciation_subsequent"], ev_v["annual_maintenance_jmd"]
-        )
+    fig_tco.update_layout(
+        title="Total Cost of Ownership",
+        xaxis_title="Year",
+        yaxis_title="Cumulative Cost (J$ millions)",
+        plot_bgcolor="#ffffff",
+        paper_bgcolor="#ffffff",
+        hovermode="x unified",
+        legend={"orientation": "h", "yanchor": "bottom", "y": 1.02,
+                "xanchor": "right", "x": 1},
+        margin={"t": 60, "b": 40, "l": 60, "r": 20},
+        height=420,
+    )
+    return summary_cards, fig_tco, show_chart, hide_ph
 
-        ice_cum = [0.0]
-        ev_cum  = [0.0]
-        for y in range(1, years + 1):
-            ice_val = ice_price * (1 - ice_dep_y1) * (1 - ice_dep_sub) ** (y - 1)
-            ice_cum.append((ice_price - ice_val) + (ice_annual_fuel + ice_maint) * y)
-            ev_val  = ev_price  * (1 - ev_dep_y1)  * (1 - ev_dep_sub)  ** (y - 1)
-            ev_cum.append((ev_price - ev_val) + (ev_annual_energy + ev_maint) * y)
 
-        x_yrs = list(range(0, years + 1))
+@app.callback(
+    Output("m1-ice-consumption", "value"),
+    Output("m1-ice-consumption-slider", "value"),
+    Input("m1-ice-consumption", "value"),
+    Input("m1-ice-consumption-slider", "value"),
+    Input("m1-ice-dropdown", "value"),
+    prevent_initial_call=True,
+)
+def sync_m1_ice_consumption(inp_val, slider_val, model_key):
+    ctx = dash.callback_context
+    if not ctx.triggered:
+        return dash.no_update, dash.no_update
+    tid = ctx.triggered[0]["prop_id"].split(".")[0]
+    if tid == "m1-ice-dropdown":
+        v = ICE_VEHICLES[model_key]["consumption_per_100km"]
+        return v, v
+    if tid == "m1-ice-consumption":
+        return dash.no_update, inp_val
+    return slider_val, dash.no_update
 
-        lifetime_savings = ice_cum[years] - ev_cum[years]
-        cards.append(html.Div([
-            html.P(f"Savings over {years}-year ownership period", style=tiny),
-            html.P(
-                f"J${lifetime_savings:,.0f}" if lifetime_savings >= 0 else f"-J${abs(lifetime_savings):,.0f}",
-                style={**big, "color": "#2E75B6" if lifetime_savings >= 0 else "#C0392B"}
-            ),
-            html.P("Positive means the EV is cheaper over the full period. Negative means the ICE vehicle is cheaper overall.",
-                   style={"fontSize": "11px", "color": "#888888", "margin": "4px 0 0"}),
-        ], style=rc))
 
-        crossover = None
-        for i in range(len(x_yrs) - 1):
-            d0, d1 = ice_cum[i] - ev_cum[i], ice_cum[i + 1] - ev_cum[i + 1]
-            if d0 * d1 < 0:
-                crossover = i + d0 / (d0 - d1)
-                break
+@app.callback(
+    Output("m1-ev-consumption", "value"),
+    Output("m1-ev-consumption-slider", "value"),
+    Input("m1-ev-consumption", "value"),
+    Input("m1-ev-consumption-slider", "value"),
+    Input("m1-ev-dropdown", "value"),
+    prevent_initial_call=True,
+)
+def sync_m1_ev_consumption(inp_val, slider_val, model_key):
+    ctx = dash.callback_context
+    if not ctx.triggered:
+        return dash.no_update, dash.no_update
+    tid = ctx.triggered[0]["prop_id"].split(".")[0]
+    if tid == "m1-ev-dropdown":
+        v = BEV_VEHICLES[model_key]["consumption_per_100km"]
+        return v, v
+    if tid == "m1-ev-consumption":
+        return dash.no_update, inp_val
+    return slider_val, dash.no_update
 
-        fig_tco = go.Figure()
-        fig_tco.add_trace(go.Scatter(
-            x=x_yrs, y=[v / 1_000_000 for v in ice_cum],
-            mode="lines+markers", name="ICE Total Cost",
-            line={"color": "#C55A11", "width": 2}, marker={"size": 6},
-        ))
-        fig_tco.add_trace(go.Scatter(
-            x=x_yrs, y=[v / 1_000_000 for v in ev_cum],
-            mode="lines+markers", name="EV Total Cost",
-            line={"color": "#1A7A6E", "width": 2}, marker={"size": 6},
-        ))
-        if crossover is not None:
-            fig_tco.add_vline(
-                x=crossover, line_dash="dash", line_color="#888",
-                annotation_text=f"Payback ~{crossover:.1f} yrs",
-                annotation_position="top right",
-            )
-        fig_tco.update_layout(
-            title="Total Cost of Ownership",
-            xaxis_title="Year",
-            yaxis_title="Cumulative Cost (J$ millions)",
-            plot_bgcolor="#ffffff",
-            paper_bgcolor="#ffffff",
-            hovermode="x unified",
-            legend={"orientation": "h", "yanchor": "bottom", "y": 1.02, "xanchor": "right", "x": 1},
-            margin={"t": 60, "b": 40, "l": 60, "r": 20},
-        )
-        tco_section = dcc.Graph(figure=fig_tco, style={"height": "400px", "marginTop": "24px"})
-    else:
-        tco_section = html.P(
-            "Enter EV purchase price to enable TCO chart",
-            style={"color": "#aaa", "fontSize": "13px", "marginTop": "20px"},
-        )
 
-    return html.Div([
-        html.H4("Results", style={"color": "#1F3864", "marginBottom": "14px"}),
-        html.Div(cards, style={"display": "flex", "gap": "12px", "flexWrap": "wrap"}),
-        tco_section,
-    ])
-    
+@app.callback(
+    Output("m1-daily-km", "value"),
+    Output("m1-daily-km-slider", "value"),
+    Input("m1-daily-km", "value"),
+    Input("m1-daily-km-slider", "value"),
+    prevent_initial_call=True,
+)
+def sync_m1_daily_km(inp_val, slider_val):
+    ctx = dash.callback_context
+    if not ctx.triggered:
+        return dash.no_update, dash.no_update
+    tid = ctx.triggered[0]["prop_id"].split(".")[0]
+    if tid == "m1-daily-km":
+        return dash.no_update, inp_val
+    return slider_val, dash.no_update
+
+
+@app.callback(
+    Output("m1-years", "value"),
+    Output("m1-years-slider", "value"),
+    Input("m1-years", "value"),
+    Input("m1-years-slider", "value"),
+    prevent_initial_call=True,
+)
+def sync_m1_years(inp_val, slider_val):
+    ctx = dash.callback_context
+    if not ctx.triggered:
+        return dash.no_update, dash.no_update
+    tid = ctx.triggered[0]["prop_id"].split(".")[0]
+    if tid == "m1-years":
+        return dash.no_update, inp_val
+    return slider_val, dash.no_update
 
 
 MODULE_INFO = {
@@ -967,18 +1455,22 @@ MODULE_INFO = {
     "tab-8": ("Caribbean Regional Comparison",     "Week 3-4", "#C55A11"),
 }
 
+ALL_CONTENT_IDS = ["content-home"] + [f"content-{k}" for k in MODULE_INFO.keys()]
+
+
+@app.callback(
+    [Output(cid, "style") for cid in ALL_CONTENT_IDS],
+    Input("active-tab-store", "data"),
+)
+def toggle_module_visibility(active_tab):
+    target = f"content-{active_tab}"
+    return [
+        ({"display": "block"} if cid == target else {"display": "none"})
+        for cid in ALL_CONTENT_IDS
+    ]
+
 
 def module5_layout():
-    banner = {
-        "backgroundColor": "#E1F5EE",
-        "color": "#0E2A24",
-        "fontWeight": "700",
-        "fontSize": "15px",
-        "padding": "10px 18px",
-        "marginBottom": "12px",
-        "marginTop": "8px",
-        "borderRadius": "2px",
-    }
     lbl = {"fontSize": "12px", "fontWeight": "600", "color": "#555",
            "marginBottom": "4px", "display": "block"}
     inp = {
@@ -986,6 +1478,8 @@ def module5_layout():
         "border": "1px solid #ccc", "borderRadius": "4px",
         "marginBottom": "14px", "boxSizing": "border-box",
     }
+    det_style = {"backgroundColor": "#fff", "border": "1px solid #e0e0e0",
+                 "borderRadius": "6px", "padding": "14px 16px", "marginBottom": "10px"}
 
     ice_opts  = [{"label": v["label"], "value": k} for k, v in ICE_VEHICLES.items()]
     ev_opts   = [{"label": v["label"], "value": k} for k, v in BEV_VEHICLES.items()]
@@ -995,78 +1489,516 @@ def module5_layout():
     d_ev   = "byd-yuan-pro-new"
     d_grid = "current_2022"
 
-    return html.Div([
-        html.Div("Emissions Calculator Inputs", style=banner),
+    left_panel = html.Div([
         html.Div([
-            # ICE column
-            html.Div([
-                html.H4("ICE Vehicle", style={"color": "#C55A11",
-                        "marginTop": "0", "marginBottom": "12px"}),
-                html.Label("Select model", style=lbl),
-                dcc.Dropdown(id="m5-ice-dropdown", options=ice_opts,
-                             value=d_ice, clearable=False,
-                             style={"fontSize": "13px", "marginBottom": "14px"}),
-                html.Label("Fuel consumption (L/100km)", style=lbl),
-                dcc.Input(id="m5-ice-consumption", type="number", debounce=True,
-                          value=ICE_VEHICLES[d_ice]["consumption_per_100km"],
-                          step=0.1, style=inp),
-            ], style={"flex": "1", "minWidth": "220px", "backgroundColor": "#fff",
-                      "border": "1px solid #e0e0e0", "borderRadius": "6px",
-                      "padding": "16px"}),
+            html.H4("ICE Vehicle", style={"color": "#C55A11",
+                    "marginTop": "0", "marginBottom": "12px"}),
+            html.Label("Select model", style=lbl),
+            dcc.Dropdown(id="m5-ice-dropdown", options=ice_opts,
+                         value=d_ice, clearable=False,
+                         style={"fontSize": "13px", "marginBottom": "14px"}),
+            html.Label("Fuel consumption (L/100km)", style=lbl),
+            dcc.Input(id="m5-ice-consumption", type="number", debounce=True,
+                      value=ICE_VEHICLES[d_ice]["consumption_per_100km"],
+                      step=0.1, style=inp),
+        ], style=det_style),
 
-            html.Div(style={"width": "16px"}),
+        html.Div([
+            html.H4("Electric Vehicle", style={"color": "#1A7A6E",
+                    "marginTop": "0", "marginBottom": "12px"}),
+            html.Label("Select model", style=lbl),
+            dcc.Dropdown(id="m5-ev-dropdown", options=ev_opts,
+                         value=d_ev, clearable=False,
+                         style={"fontSize": "13px", "marginBottom": "14px"}),
+            html.Label("Energy consumption (kWh/100km)", style=lbl),
+            dcc.Input(id="m5-ev-consumption", type="number", debounce=True,
+                      value=BEV_VEHICLES[d_ev]["consumption_per_100km"],
+                      step=0.1, style=inp),
+        ], style=det_style),
 
-            # BEV column
-            html.Div([
-                html.H4("Electric Vehicle", style={"color": "#1A7A6E",
-                        "marginTop": "0", "marginBottom": "12px"}),
-                html.Label("Select model", style=lbl),
-                dcc.Dropdown(id="m5-ev-dropdown", options=ev_opts,
-                             value=d_ev, clearable=False,
-                             style={"fontSize": "13px", "marginBottom": "14px"}),
-                html.Label("Energy consumption (kWh/100km)", style=lbl),
-                dcc.Input(id="m5-ev-consumption", type="number", debounce=True,
-                          value=BEV_VEHICLES[d_ev]["consumption_per_100km"],
-                          step=0.1, style=inp),
-            ], style={"flex": "1", "minWidth": "220px", "backgroundColor": "#fff",
-                      "border": "1px solid #e0e0e0", "borderRadius": "6px",
-                      "padding": "16px"}),
+        html.Div([
+            html.H4("Driving and Grid", style={"color": "#2E75B6",
+                    "marginTop": "0", "marginBottom": "12px"}),
+            html.Label("Daily driving distance (km)", style=lbl),
+            dcc.Input(id="m5-daily-km", type="number", debounce=True,
+                      value=50, min=1, max=500, step=1, style=inp),
+            html.Label("Ownership period (years)", style=lbl),
+            dcc.Input(id="m5-years", type="number", debounce=True,
+                      value=5, min=1, max=20, step=1, style=inp),
+            html.Label("Grid scenario", style=lbl),
+            dcc.Dropdown(id="m5-grid-scenario", options=grid_opts,
+                         value=d_grid, clearable=False,
+                         style={"fontSize": "13px", "marginBottom": "4px"}),
+            html.P("Source: METT 2022 Jamaica IRP (Cabinet approved, Aug 2023).",
+                   style={"fontSize": "10px", "color": "#888", "marginTop": "4px"}),
+        ], style=det_style),
 
-            html.Div(style={"width": "16px"}),
-
-            # Shared inputs column
-            html.Div([
-                html.H4("Driving and Grid", style={"color": "#2E75B6",
-                        "marginTop": "0", "marginBottom": "12px"}),
-                html.Label("Daily driving distance (km)", style=lbl),
-                dcc.Input(id="m5-daily-km", type="number", debounce=True,
-                          value=50, min=1, max=500, step=1, style=inp),
-                html.Label("Ownership period (years)", style=lbl),
-                dcc.Input(id="m5-years", type="number", debounce=True,
-                          value=5, min=1, max=20, step=1, style=inp),
-                html.Label("Grid scenario", style=lbl),
-                dcc.Dropdown(id="m5-grid-scenario", options=grid_opts,
-                             value=d_grid, clearable=False,
-                             style={"fontSize": "13px", "marginBottom": "4px"}),
-                html.P("Source: MSETT 2022 Jamaica IRP (Cabinet approved, Aug 2023).",
-                       style={"fontSize": "10px", "color": "#888", "marginTop": "4px"}),
-            ], style={"flex": "1", "minWidth": "220px", "backgroundColor": "#fff",
-                      "border": "1px solid #e0e0e0", "borderRadius": "6px",
-                      "padding": "16px"}),
-
-        ], style={"display": "flex", "gap": "0px", "marginBottom": "20px",
-                  "flexWrap": "wrap"}),
-
-        html.Div(id="m5-results"),
+        html.Div(id="m5-cards"),
 
         html.P([
             "Petrol CO2: 2.31 kg CO2/litre (90 octane combustion chemistry). ",
-            "Grid CO2 intensities derived from MSETT (2023) 2022 Jamaica Integrated "
+            "Grid CO2 intensities derived from METT (2023) 2022 Jamaica Integrated "
             "Resource Plan: 2022 actual (2.1 Mt CO2 / 4,425 GWh); 2030 IRP target "
             "(1.29 Mt CO2 / 4,688 GWh). BEV manufacturing CO2 premium estimates "
             "from IEA lifecycle analysis literature. All figures are estimates."
-        ], style={"fontSize": "11px", "color": "#999", "marginTop": "16px",
-                  "borderTop": "1px solid #eee", "paddingTop": "12px"}),
+        ], style={"fontSize": "11px", "color": "#999", "marginTop": "12px",
+                  "borderTop": "1px solid #eee", "paddingTop": "10px"}),
+    ], style={"width": "40%", "minWidth": "300px", "flexShrink": "0"})
+
+    right_panel = html.Div([
+        dcc.Graph(id="m5-co2-fig", style={"height": "480px"},
+                  config={"displayModeBar": False}),
+    ], style={
+        "flex": "1",
+        "minWidth": "300px",
+        "position": "sticky",
+        "top": "20px",
+        "alignSelf": "flex-start",
+        "backgroundColor": "#ffffff",
+        "border": "1px solid #e0e0e0",
+        "borderRadius": "8px",
+        "padding": "16px",
+        "overflowY": "auto",
+        "maxHeight": "90vh",
+    })
+
+    return html.Div([
+        html.Div([left_panel, right_panel],
+                 style={"display": "flex", "gap": "20px",
+                        "alignItems": "flex-start", "flexWrap": "wrap"}),
+    ])
+
+
+def module4_layout():
+    banner = {
+        "backgroundColor": "#E1F5EE", "color": "#0E2A24",
+        "fontWeight": "700", "fontSize": "15px",
+        "padding": "10px 16px", "marginBottom": "12px",
+        "marginTop": "8px", "borderRadius": "6px",
+        "borderLeft": "3px solid #1A9E75",
+    }
+    lbl = {"fontSize": "12px", "fontWeight": "600", "color": "#555",
+           "marginBottom": "4px", "display": "block"}
+    inp = {"width": "100%", "padding": "6px 8px", "fontSize": "13px",
+           "border": "1px solid #ccc", "borderRadius": "4px",
+           "marginBottom": "10px", "boxSizing": "border-box"}
+
+    btn_base = {
+        "padding": "7px 14px", "fontSize": "12px", "fontWeight": "600",
+        "border": "1px solid #1A9E75", "borderRadius": "4px",
+        "cursor": "pointer", "backgroundColor": "#ffffff", "color": "#1A9E75",
+        "transition": "background-color 0.15s",
+    }
+
+    def stream_controls(stream_key):
+        b = FLEET_BASELINES[stream_key]
+        s = SCURVE_DEFAULTS[stream_key]
+        preset_note_default = SCURVE_PRESETS[stream_key]["base"]["note"]
+
+        return html.Div([
+            html.Div([
+                html.H4(b["label"],
+                        style={"color": "#1A9E75", "marginTop": "0", "marginBottom": "4px"}),
+                html.P(
+                    f"2030 target: {b['target_pct_2030']}% EV penetration "
+                    "(National EV Policy 2023)",
+                    style={"fontSize": "12px", "color": "#666", "marginBottom": "14px"},
+                ),
+
+                html.Label("Choose a scenario", style=lbl),
+                html.Div([
+                    html.Button(
+                        "Conservative",
+                        id=f"m4-{stream_key}-preset-conservative",
+                        n_clicks=0,
+                        style=btn_base,
+                    ),
+                    html.Button(
+                        "Base case",
+                        id=f"m4-{stream_key}-preset-base",
+                        n_clicks=0,
+                        style=btn_base,
+                    ),
+                    html.Button(
+                        "Optimistic",
+                        id=f"m4-{stream_key}-preset-optimistic",
+                        n_clicks=0,
+                        style=btn_base,
+                    ),
+                ], style={"display": "flex", "gap": "8px",
+                          "marginBottom": "10px", "flexWrap": "wrap"}),
+
+                html.P(
+                    id=f"m4-{stream_key}-preset-note",
+                    children=preset_note_default,
+                    style={
+                        "fontSize": "11px", "color": "#444",
+                        "backgroundColor": "#f4faf8",
+                        "padding": "8px 12px", "borderRadius": "4px",
+                        "borderLeft": "3px solid #1A9E75",
+                        "marginBottom": "14px",
+                    },
+                ),
+
+                html.Details([
+                    html.Summary(
+                        "Fine-tune the S-curve (advanced)",
+                        style={
+                            "fontSize": "12px", "cursor": "pointer",
+                            "color": "#777", "padding": "4px 0",
+                            "marginBottom": "10px",
+                        },
+                    ),
+                    html.P(
+                        "Steepness: how sharply adoption accelerates once it starts. "
+                        "Midpoint: the year when 50% of the stream's target penetration is reached. "
+                        "Clicking a preset above updates these values automatically.",
+                        style={"fontSize": "11px", "color": "#888", "marginBottom": "10px"},
+                    ),
+                    html.Label(
+                        "S-curve steepness  (0.1 = slow gradual ramp,  1.5 = sharp rapid ramp)",
+                        style=lbl,
+                    ),
+                    dcc.Slider(
+                        id=f"m4-{stream_key}-steepness",
+                        min=0.1, max=1.5, step=0.05, value=s["steepness"],
+                        marks={0.1: "slow", 0.5: "", 0.8: "medium", 1.2: "", 1.5: "sharp"},
+                        tooltip={"placement": "bottom", "always_visible": True},
+                    ),
+                    html.Div(style={"height": "10px"}),
+                    html.Label(
+                        "Midpoint year  (year when 50% of the target penetration is reached)",
+                        style=lbl,
+                    ),
+                    dcc.Slider(
+                        id=f"m4-{stream_key}-midpoint",
+                        min=2027, max=2045, step=1, value=s["midpoint_year"],
+                        marks={
+                            2027: "2027", 2030: "2030", 2035: "2035",
+                            2040: "2040", 2045: "2045",
+                        },
+                        tooltip={"placement": "bottom", "always_visible": True},
+                    ),
+                    html.Div(style={"height": "10px"}),
+                ], style={"marginBottom": "12px"}),
+
+                html.Hr(style={"margin": "10px 0", "borderColor": "#eee"}),
+
+                html.Label("Current fleet size (vehicles)", style=lbl),
+                dcc.Input(
+                    id=f"m4-{stream_key}-fleet-size", type="number", debounce=True,
+                    value=b["current_estimate"], min=100, max=10_000_000, step=100,
+                    style=inp,
+                ),
+                html.P(
+                    b["current_source"],
+                    style={"fontSize": "10px", "color": "#C0392B",
+                           "marginTop": "-6px", "marginBottom": "10px"},
+                ),
+
+                html.Label("Avg annual km per vehicle", style=lbl),
+                dcc.Input(
+                    id=f"m4-{stream_key}-km-per-year", type="number", debounce=True,
+                    value=b["km_per_year_avg"], min=1000, max=100000, step=1000,
+                    style=inp,
+                ),
+
+                html.Label("Avg ICE consumption (L/100km)", style=lbl),
+                dcc.Input(
+                    id=f"m4-{stream_key}-consumption", type="number", debounce=True,
+                    value=b["avg_consumption_l_per_100km"], min=3, max=25, step=0.1,
+                    style=inp,
+                ),
+
+            ], style={
+                "backgroundColor": "#fff", "border": "1px solid #e0e0e0",
+                "borderRadius": "6px", "padding": "16px", "marginBottom": "16px",
+            }),
+        ])
+
+    left_children = [
+
+        html.Div(
+            "Fleet Penetration Simulator -- Jamaica 2030 EV Targets",
+            style=banner,
+        ),
+        html.P([
+            "This module projects EV adoption across three fleet streams against Jamaica's "
+            "National EV Policy 2023 targets. Use the scenario presets for each stream to "
+            "choose Conservative, Base case, or Optimistic assumptions, then expand "
+            "'Fine-tune' if you want to adjust the S-curve shape manually. "
+            "The chart below updates immediately."
+        ], style={"fontSize": "13px", "color": "#444", "marginBottom": "16px"}),
+
+        html.P([
+            html.Strong("Important on data confidence: "),
+            "Only the private-stream 2015 baseline (190,000 vehicles) is from a published "
+            "international source. All three current fleet sizes are PLACEHOLDERS pending "
+            "institutional confirmation from METT, STATIN, and the Transport Authority. "
+            "The S-curve shape is a modelling assumption, not a forecast."
+        ], style={
+            "fontSize": "11px", "color": "#666",
+            "borderLeft": "3px solid #E0A106",
+            "padding": "10px 14px", "backgroundColor": "#FFF9E6",
+            "marginBottom": "16px", "borderRadius": "4px",
+        }),
+
+        html.Div("Global projection settings", style=banner),
+        html.Div([
+            html.Div([
+                html.Label("Projection horizon (years from today)", style=lbl),
+                dcc.Slider(
+                    id="m4-horizon", min=5, max=25, step=1, value=15,
+                    marks={5: "5", 10: "10", 15: "15", 20: "20", 25: "25"},
+                    tooltip={"placement": "bottom", "always_visible": False},
+                ),
+                html.Div(style={"height": "16px"}),
+                html.Label("Grid CO2 intensity scenario", style=lbl),
+                dcc.Dropdown(
+                    id="m4-grid-scenario",
+                    options=[{"label": v["label"], "value": k}
+                             for k, v in GRID_SCENARIOS.items()],
+                    value="irp_2026", clearable=False,
+                    style={"fontSize": "13px", "marginBottom": "12px"},
+                ),
+                html.P(
+                    "Same grid scenarios as Module 5. Affects the CO2 avoided figures only.",
+                    style={"fontSize": "11px", "color": "#888"},
+                ),
+            ], style={
+                "flex": "1", "minWidth": "300px",
+                "backgroundColor": "#fff", "border": "1px solid #e0e0e0",
+                "borderRadius": "6px", "padding": "16px",
+            }),
+        ], style={"marginBottom": "16px"}),
+
+        html.Div("Fleet stream parameters", style=banner),
+
+        html.Details([
+            html.Summary(
+                "Private Vehicle Fleet  (2030 target: 12%)",
+                style={"cursor": "pointer", "fontWeight": "600",
+                       "fontSize": "14px", "padding": "8px"},
+            ),
+            stream_controls("private"),
+        ], open=True, style={
+            "backgroundColor": "#fafafa", "borderRadius": "6px",
+            "padding": "8px", "marginBottom": "8px",
+        }),
+
+        html.Details([
+            html.Summary(
+                "Public Transport Fleet  (2030 target: 16%)",
+                style={"cursor": "pointer", "fontWeight": "600",
+                       "fontSize": "14px", "padding": "8px"},
+            ),
+            stream_controls("public"),
+        ], open=False, style={
+            "backgroundColor": "#fafafa", "borderRadius": "6px",
+            "padding": "8px", "marginBottom": "8px",
+        }),
+
+        html.Details([
+            html.Summary(
+                "GOJ Fleet  (2030 target: 100%)",
+                style={"cursor": "pointer", "fontWeight": "600",
+                       "fontSize": "14px", "padding": "8px"},
+            ),
+            stream_controls("goj"),
+        ], open=False, style={
+            "backgroundColor": "#fafafa", "borderRadius": "6px",
+            "padding": "8px", "marginBottom": "16px",
+        }),
+
+        html.Div(id="m4-summary-cards"),
+
+        html.P([
+            "Sources: 2030 targets from National EV Policy (Government of Jamaica, 2023). "
+            "Private fleet 2015 anchor from CEIC/OICA. "
+            "Grid CO2 intensity from METT 2022 Integrated Resource Plan. "
+            "Import duty structure from Jamaica Customs Agency FAQ (jca.gov.jm). "
+            "All current-fleet-size defaults are PLACEHOLDERS."
+        ], style={
+            "fontSize": "11px", "color": "#999", "marginTop": "16px",
+            "borderTop": "1px solid #eee", "paddingTop": "12px",
+        }),
+    ]
+
+    right_panel_style = {
+        "flex": "1",
+        "minWidth": "300px",
+        "position": "sticky",
+        "top": "20px",
+        "alignSelf": "flex-start",
+        "backgroundColor": "#ffffff",
+        "border": "1px solid #e0e0e0",
+        "borderRadius": "8px",
+        "padding": "16px",
+        "overflowY": "auto",
+        "maxHeight": "90vh",
+    }
+
+    right_panel = html.Div([
+        dcc.Graph(id="m4-penetration-fig", style={"height": "320px"},
+                  config={"displayModeBar": False}),
+        dcc.Graph(id="m4-co2-fig",         style={"height": "250px"},
+                  config={"displayModeBar": False}),
+        dcc.Graph(id="m4-revenue-fig",     style={"height": "250px"},
+                  config={"displayModeBar": False}),
+    ], style=right_panel_style)
+
+    left_panel = html.Div(left_children,
+                          style={"width": "40%", "minWidth": "300px", "flexShrink": "0"})
+
+    return html.Div([
+        html.Div([left_panel, right_panel],
+                 style={"display": "flex", "gap": "20px",
+                        "alignItems": "flex-start", "flexWrap": "wrap"}),
+    ])
+
+
+def module6_layout():
+    lbl  = {"fontSize": "12px", "fontWeight": "600", "color": "#555",
+            "marginBottom": "4px", "display": "block"}
+    inp  = {"width": "100%", "padding": "6px 8px", "fontSize": "13px",
+            "border": "1px solid #ccc", "borderRadius": "4px",
+            "marginBottom": "6px", "boxSizing": "border-box"}
+    hint = {"fontSize": "11px", "color": "#888", "marginBottom": "10px", "marginTop": "2px"}
+    det_sum = {"cursor": "pointer", "fontWeight": "600", "fontSize": "13px",
+               "padding": "6px 0", "marginBottom": "8px"}
+    det_style = {"backgroundColor": "#fff", "border": "1px solid #e0e0e0",
+                 "borderRadius": "6px", "padding": "14px 16px", "marginBottom": "10px"}
+    veh_det = {"backgroundColor": "#fafafa", "border": "1px solid #e0e0e0",
+               "borderRadius": "4px", "padding": "10px 14px", "marginBottom": "8px"}
+
+    def loan_block(prefix, label, default_dp, default_rate, default_term):
+        return html.Details([
+            html.Summary(label, style={**det_sum, "fontSize": "12px"}),
+            html.Label("Down payment (%)", style=lbl),
+            dcc.Input(id=f"m6-{prefix}-downpayment", type="number", debounce=True,
+                      value=default_dp, min=0, max=100, step=5, style=inp),
+            html.Label("Loan interest rate (% APR)", style=lbl),
+            dcc.Input(id=f"m6-{prefix}-loan-rate", type="number", debounce=True,
+                      value=default_rate, min=1, max=30, step=0.1, style=inp),
+            dcc.Slider(id=f"m6-{prefix}-loan-rate-slider", min=1, max=30, step=0.1,
+                       value=default_rate,
+                       marks={1: "1%", 10: "10%", 20: "20%", 30: "30%"},
+                       tooltip={"placement": "bottom", "always_visible": False}),
+            html.Label("Loan term (years)", style={**lbl, "marginTop": "8px"}),
+            dcc.Input(id=f"m6-{prefix}-loan-term", type="number", debounce=True,
+                      value=default_term, min=0.5, max=10, step=0.5, style=inp),
+            dcc.Slider(id=f"m6-{prefix}-loan-term-slider", min=0.5, max=10, step=0.5,
+                       value=default_term,
+                       marks={0.5: "0.5", 3: "3", 6: "6", 10: "10"},
+                       tooltip={"placement": "bottom", "always_visible": False}),
+        ], open=True, style=veh_det)
+
+    left_panel = html.Div([
+        html.Details([
+            html.Summary("Trip volume and revenue", style=det_sum),
+            html.Label("Trips per day", style=lbl),
+            dcc.Input(id="m6-trips-per-day", type="number", debounce=True,
+                      value=40, min=5, max=150, step=1, style=inp),
+            dcc.Slider(id="m6-trips-per-day-slider", min=5, max=150, step=1, value=40,
+                       marks={5: "5", 40: "40", 80: "80", 150: "150"},
+                       tooltip={"placement": "bottom", "always_visible": False}),
+            html.P("Typical Kingston route taxi: 30–60 short trips per day.", style=hint),
+            html.Label("Total fare per trip (J$)", style=lbl),
+            dcc.Input(id="m6-fare", type="number", debounce=True,
+                      value=DEFAULT_FARE_PER_TRIP, min=50, max=2000, step=10, style=inp),
+            html.P("Full amount collected per completed trip.", style=hint),
+            html.Label("Average distance per trip (km)", style=lbl),
+            dcc.Input(id="m6-trip-km", type="number", debounce=True,
+                      value=DEFAULT_TRIP_KM, min=1, max=30, step=0.5, style=inp),
+            html.P("Kingston short routes average 3–7 km.", style=hint),
+            html.Label("Working days per week", style=lbl),
+            dcc.Input(id="m6-days-per-week", type="number", debounce=True,
+                      value=6, min=1, max=7, step=1, style=inp),
+            html.P("Most Kingston operators work 6 days.", style=hint),
+            html.Label("Ownership horizon (years)", style=lbl),
+            dcc.Input(id="m6-ownership-years", type="number", debounce=True,
+                      value=5, min=1, max=15, step=0.5, style=inp),
+            dcc.Slider(id="m6-ownership-years-slider", min=1, max=15, step=0.5, value=5,
+                       marks={1: "1", 5: "5", 10: "10", 15: "15"},
+                       tooltip={"placement": "bottom", "always_visible": False}),
+            html.P("Longer horizons show the full benefit of EV loan payoff.", style=hint),
+        ], open=True, style=det_style),
+
+        html.Details([
+            html.Summary("EV charging scenario", style=det_sum),
+            dcc.RadioItems(
+                id="m6-charging-scenario",
+                options=[
+                    {"label": " Public only — J$96/kWh (Evergo confirmed)", "value": "public"},
+                    {"label": " Fleet HQ — J$60/kWh (estimated commercial rate)", "value": "fleet_hq"},
+                    {"label": " Mix: 60% fleet HQ, 40% public", "value": "mix"},
+                    {"label": " Custom rate", "value": "custom"},
+                ],
+                value="public",
+                labelStyle={"display": "block", "fontSize": "12px", "marginBottom": "6px"},
+            ),
+            html.Div(id="m6-custom-rate-wrapper", children=[
+                html.Label("Custom charging rate (J$/kWh)", style={**lbl, "marginTop": "8px"}),
+                dcc.Input(id="m6-custom-rate", type="number", debounce=True,
+                          value=None, min=10, max=200, step=0.5,
+                          placeholder="J$/kWh",
+                          style={"width": "160px", "padding": "6px 8px", "fontSize": "13px",
+                                 "border": "1px solid #ccc", "borderRadius": "4px"}),
+            ], style={"display": "none"}),
+            html.P("Public rate is confirmed. Fleet HQ rate is a project estimate for "
+                   "commercial JPS tariff pending confirmed data.",
+                   style={**hint, "marginTop": "8px"}),
+        ], open=True, style=det_style),
+
+        html.Details([
+            html.Summary("Loan financing — per vehicle", style=det_sum),
+            loan_block("probox", "Toyota Probox",     default_dp=20, default_rate=11.0, default_term=3),
+            loan_block("yuan",   "BYD Yuan Plus 2024", default_dp=10, default_rate=9.0,  default_term=5),
+            loan_block("leaf",   "Nissan Leaf (used)", default_dp=20, default_rate=13.0, default_term=4),
+            html.P("Rates from ScoopRate summary of Jamaica lender rates, 2026.",
+                   style=hint),
+        ], open=True, style=det_style),
+
+        html.Div(id="m6-vehicle-cards"),
+
+        html.P([
+            "Sources: Probox real-world consumption from inCarDoc (1NZ-FE 1.5L, urban 10.7 L/100km). "
+            "BYD Yuan Plus 16.3 kWh/100km from field data across 16 Kingston route legs. "
+            "Public charging rate J$96/kWh confirmed by Evergo, June 2026. "
+            "Probox price from Jacars.net asking prices (not confirmed sales). "
+            "BYD Yuan Plus price is a placeholder pending confirmed dealer quote."
+        ], style={"fontSize": "11px", "color": "#999", "marginTop": "8px",
+                  "borderTop": "1px solid #eee", "paddingTop": "10px"}),
+    ], style={"width": "40%", "minWidth": "300px", "flexShrink": "0"})
+
+    right_panel = html.Div([
+        html.P(
+            "Fill in the inputs to see cumulative income chart and crossover analysis.",
+            id="m6-chart-placeholder",
+            style={"color": "#aaa", "fontSize": "13px", "marginTop": "40px",
+                   "textAlign": "center"},
+        ),
+        dcc.Graph(id="m6-income-fig", style={"display": "none"},
+                  config={"displayModeBar": False}),
+        html.Div(id="m6-crossover-cards"),
+    ], style={
+        "flex": "1",
+        "minWidth": "300px",
+        "position": "sticky",
+        "top": "20px",
+        "alignSelf": "flex-start",
+        "backgroundColor": "#ffffff",
+        "border": "1px solid #e0e0e0",
+        "borderRadius": "8px",
+        "padding": "16px",
+        "overflowY": "auto",
+        "maxHeight": "90vh",
+    })
+
+    return html.Div([
+        html.Div([left_panel, right_panel],
+                 style={"display": "flex", "gap": "20px",
+                        "alignItems": "flex-start", "flexWrap": "wrap"}),
     ])
 
 
@@ -1096,7 +2028,7 @@ def homepage_layout():
                        style={"fontSize": "22px", "color": "var(--accent)", "marginBottom": "10px"}),
                 html.H4(name, style={"margin": "0 0 6px", "fontSize": "15px", "color": "var(--text-primary)"}),
                 html.P(f"Build target: {target}", style={"margin": "0", "fontSize": "12px", "color": "var(--text-muted)"}),
-            ], id={"type": "nav-link", "index": tab_id}, n_clicks=0, style=card_style)
+            ], id={"type": "home-card", "index": tab_id}, n_clicks=0, style=card_style)
         )
     return html.Div([
         html.H2("Jamaica EV Dashboard", style={"color": "var(--text-primary)", "marginBottom": "4px"}),
@@ -1135,9 +2067,10 @@ def render_sidebar_nav(active_tab):
 @app.callback(
     Output("active-tab-store", "data"),
     Input({"type": "nav-link", "index": dash.ALL}, "n_clicks"),
+    Input({"type": "home-card", "index": dash.ALL}, "n_clicks"),
     prevent_initial_call=True
 )
-def update_active_tab(n_clicks_list):
+def update_active_tab(nav_clicks, card_clicks):
     import json
     ctx = dash.callback_context
     if not ctx.triggered:
@@ -1148,18 +2081,14 @@ def update_active_tab(n_clicks_list):
 
 
 @app.callback(
-    Output("tab-content", "children"),
+    Output("page-header", "children"),
     Input("active-tab-store", "data"),
-    Input("fuel-price-slider", "value"),
-    Input("electricity-rate-slider", "value")
 )
-def render_tab(tab, fuel_price, electricity_rate):
+def update_page_header(tab):
     if tab == "home":
-        return homepage_layout()
-
+        return None
     name, target, colour = MODULE_INFO[tab]
-
-    header = html.Div([
+    return html.Div([
         html.H2(name, style={"color": "#1F3864", "marginTop": "0"}),
         html.Div([
             html.Span("Build target: ", style={"fontWeight": "600", "color": "#555"}),
@@ -1173,69 +2102,826 @@ def render_tab(tab, fuel_price, electricity_rate):
             "marginBottom": "20px",
             "fontSize": "14px"
         }),
-        html.Div([
-            html.P([
-                html.Strong("Active global settings: "),
-                f"Fuel price = {'J$' + str(fuel_price) if fuel_price else 'not set'}   |   "
-                f"Electricity rate = J${electricity_rate}/kWh"
-            ], style={"fontSize": "13px", "color": "#444", "margin": "0"})
-        ], style={
-            "backgroundColor": "#EBF5FB",
-            "padding": "10px 16px",
-            "borderRadius": "4px",
-            "fontSize": "13px",
-            "marginBottom": "20px"
-        }),
     ])
 
-    placeholder = html.P(
-        "Module content will be built in accordance with the project timeline. "
-        "Use the sidebar inputs to verify that global state is working correctly — "
-        "the active settings panel above should update across all tabs.",
-        style={"color": "#777", "fontSize": "13px", "marginTop": "20px"}
+
+import math
+
+
+def logistic_curve(year, current_year, midpoint_year, steepness, target_max):
+    years_from_midpoint = year - midpoint_year
+    exponent = -steepness * years_from_midpoint
+    if exponent > 500:
+        return 0.0
+    return target_max / (1 + math.exp(exponent))
+
+
+def hex_to_rgba(hex_color, alpha=0.5):
+    """Convert a #RRGGBB hex string to rgba(r,g,b,a) for Plotly."""
+    h = hex_color.lstrip("#")
+    r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+    return f"rgba({r},{g},{b},{alpha})"
+
+
+@app.callback(
+    Output("m4-summary-cards",   "children"),
+    Output("m4-penetration-fig", "figure"),
+    Output("m4-co2-fig",         "figure"),
+    Output("m4-revenue-fig",     "figure"),
+    Input("m4-horizon", "value"),
+    Input("m4-grid-scenario", "value"),
+    Input("m4-private-fleet-size", "value"),
+    Input("m4-private-km-per-year", "value"),
+    Input("m4-private-consumption", "value"),
+    Input("m4-private-steepness", "value"),
+    Input("m4-private-midpoint", "value"),
+    Input("m4-public-fleet-size", "value"),
+    Input("m4-public-km-per-year", "value"),
+    Input("m4-public-consumption", "value"),
+    Input("m4-public-steepness", "value"),
+    Input("m4-public-midpoint", "value"),
+    Input("m4-goj-fleet-size", "value"),
+    Input("m4-goj-km-per-year", "value"),
+    Input("m4-goj-consumption", "value"),
+    Input("m4-goj-steepness", "value"),
+    Input("m4-goj-midpoint", "value"),
+)
+def calculate_module4(horizon, grid_scenario,
+                      priv_size, priv_km, priv_cons, priv_steep, priv_mid,
+                      pub_size, pub_km, pub_cons, pub_steep, pub_mid,
+                      goj_size, goj_km, goj_cons, goj_steep, goj_mid):
+
+    empty_fig = go.Figure()
+    empty_fig.update_layout(
+        plot_bgcolor="#ffffff", paper_bgcolor="#ffffff",
+        xaxis={"visible": False}, yaxis={"visible": False},
+        annotations=[{"text": "Adjust all inputs to see projections.",
+                      "xref": "paper", "yref": "paper", "x": 0.5, "y": 0.5,
+                      "showarrow": False, "font": {"size": 13, "color": "#aaa"}}],
+    )
+    required = [horizon, grid_scenario, priv_size, priv_km, priv_cons, priv_steep, priv_mid,
+                pub_size, pub_km, pub_cons, pub_steep, pub_mid,
+                goj_size, goj_km, goj_cons, goj_steep, goj_mid]
+    if not all(x is not None for x in required):
+        return None, empty_fig, empty_fig, empty_fig
+
+    from datetime import datetime
+    current_year = datetime.now().year
+    years = list(range(current_year, current_year + int(horizon) + 1))
+
+    grid_intensity = GRID_SCENARIOS[grid_scenario]["intensity_kg_per_kwh"]
+
+    streams = {
+        "private": {"size": priv_size, "km": priv_km, "cons": priv_cons,
+                    "steep": priv_steep, "mid": priv_mid,
+                    "target": FLEET_BASELINES["private"]["target_pct_2030"],
+                    "label": "Private", "color": "#2E75B6"},
+        "public":  {"size": pub_size, "km": pub_km, "cons": pub_cons,
+                    "steep": pub_steep, "mid": pub_mid,
+                    "target": FLEET_BASELINES["public"]["target_pct_2030"],
+                    "label": "Public Transport", "color": "#C55A11"},
+        "goj":     {"size": goj_size, "km": goj_km, "cons": goj_cons,
+                    "steep": goj_steep, "mid": goj_mid,
+                    "target": FLEET_BASELINES["goj"]["target_pct_2030"],
+                    "label": "GOJ", "color": "#1A9E75"},
+    }
+
+    for key, s in streams.items():
+        s["penetration"] = [logistic_curve(y, current_year, s["mid"], s["steep"], s["target"])
+                            for y in years]
+        s["ev_count"] = [s["size"] * (p / 100) for p in s["penetration"]]
+        ice_co2_per_veh = s["km"] * (s["cons"] / 100) * CO2_PER_LITRE_PETROL
+        ev_kwh_per_year = s["km"] * (16.0 / 100)
+        ev_co2_per_veh = ev_kwh_per_year * grid_intensity
+        co2_saved_per_veh = ice_co2_per_veh - ev_co2_per_veh
+        s["annual_co2_saved_t"] = [(ev * co2_saved_per_veh) / 1000 for ev in s["ev_count"]]
+        s["revenue_impact"] = [0]
+        for i in range(1, len(years)):
+            new_evs = s["ev_count"][i] - s["ev_count"][i - 1]
+            s["revenue_impact"].append(new_evs * (ICE_IMPORT_REVENUE_PER_VEHICLE_JMD - EV_IMPORT_REVENUE_PER_VEHICLE_JMD))
+
+    target_year = 2030
+    idx_2030 = years.index(target_year) if target_year in years else None
+
+    card = {"backgroundColor": "#ffffff", "border": "1px solid #e0e0e0",
+            "borderRadius": "6px", "padding": "16px 20px",
+            "flex": "1", "minWidth": "180px", "textAlign": "center"}
+    big  = {"fontSize": "22px", "fontWeight": "700", "margin": "6px 0"}
+    tiny = {"fontSize": "12px", "color": "#777", "margin": "0"}
+    section_banner = {"backgroundColor": "#E1F5EE", "color": "#0E2A24",
+                      "fontWeight": "700", "fontSize": "14px",
+                      "padding": "8px 16px", "marginBottom": "12px",
+                      "marginTop": "20px", "borderRadius": "6px",
+                      "borderLeft": "3px solid #1A9E75"}
+
+    target_cards = []
+    for key, s in streams.items():
+        if idx_2030 is not None:
+            projected = s["penetration"][idx_2030]
+            gap = s["target"] - projected
+            gap_text = f"{gap:+.1f} pp" if gap >= 0 else f"{gap:.1f} pp"
+            gap_color = "#C0392B" if gap > 0.5 else "#2d8a2d"
+            proj_text = f"{projected:.1f}%"
+        else:
+            gap_text = "beyond horizon"
+            gap_color = "#888"
+            proj_text = "--"
+        target_cards.append(html.Div([
+            html.P(s["label"], style=tiny),
+            html.P(f"Target {s['target']}% | Projected {proj_text}",
+                   style={"fontSize": "13px", "margin": "6px 0", "color": "#333"}),
+            html.P(gap_text, style={**big, "color": gap_color, "fontSize": "20px"}),
+            html.P("gap to 2030 target", style={"fontSize": "10px", "color": "#888"}),
+        ], style=card))
+
+    fig_pen = go.Figure()
+    for key, s in streams.items():
+        fig_pen.add_trace(go.Scatter(
+            x=years, y=s["penetration"], mode="lines+markers",
+            name=f"{s['label']} projected",
+            line=dict(color=s["color"], width=2), marker=dict(size=5),
+        ))
+        fig_pen.add_hline(y=s["target"], line_dash="dot", line_color=s["color"],
+                          annotation_text=f"{s['label']} 2030 target ({s['target']}%)",
+                          annotation_position="right",
+                          annotation_font_size=10, annotation_font_color=s["color"])
+    fig_pen.add_vline(x=2030, line_dash="dash", line_color="#888",
+                      annotation_text="2030", annotation_position="top")
+    fig_pen.update_layout(
+        title={"text": "EV Penetration Projection by Fleet Stream", "font": {"size": 14}},
+        xaxis=dict(title="Year"),
+        yaxis=dict(title="EV share of fleet (%)", ticksuffix="%"),
+        plot_bgcolor="#ffffff", paper_bgcolor="#ffffff",
+        legend=dict(orientation="h", yanchor="top", y=-0.25, xanchor="center", x=0.5, font=dict(size=10)),
+        height=380, margin=dict(l=60, r=20, t=60, b=80),
+        hovermode="x unified",
     )
 
-    if tab == "tab-3":
-        fig = px.line(
-            fuel_df,
-            x="Date",
-            y=["Gasolene 87", "Gasolene 90", "Auto Diesel"],
-            title="Petrojam Weekly Pump Prices — Jamaica (J$/litre)",
-            labels={"value": "Price (J$/litre)", "variable": "Fuel Type"},
-            color_discrete_map={
-                "Gasolene 87":  "#2E75B6",
-                "Gasolene 90":  "#1A7A6E",
-                "Auto Diesel":  "#C55A11",
-            }
-        )
-        if fuel_price is not None:
-            fig.add_hline(
-                y=fuel_price,
-                line_dash="dash",
-                line_color="#888",
-                annotation_text=f"Current input: J${fuel_price}",
-                annotation_position="top left"
-            )
-        fig.update_layout(
-            plot_bgcolor="#ffffff",
-            paper_bgcolor="#ffffff",
-            legend_title_text="",
-            hovermode="x unified",
-            margin={"t": 50, "b": 40, "l": 60, "r": 20},
-        )
-        content = dcc.Graph(figure=fig, style={"height": "480px"})
-    elif tab == "tab-1":
-        content = module1_layout()
-    elif tab == "tab-7":
-        content = build_module7_layout()
-    elif tab == "tab-8":
-        content = module8_layout()
-    elif tab == "tab-5":
-        content = module5_layout()
+    fig_co2 = go.Figure()
+    for key, s in streams.items():
+        cum, running = [], 0
+        for v in s["annual_co2_saved_t"]:
+            running += v
+            cum.append(running)
+        fig_co2.add_trace(go.Scatter(
+            x=years, y=cum, mode="lines",
+            name=f"{s['label']} cumulative",
+            stackgroup="one",
+            line=dict(color=s["color"], width=0),
+            fillcolor=hex_to_rgba(s["color"], 0.5),
+        ))
+    fig_co2.update_layout(
+        title={"text": "Cumulative CO2 Avoided (tonnes)", "font": {"size": 14}},
+        xaxis=dict(title="Year"),
+        yaxis=dict(title="Cumulative CO2 avoided (t)"),
+        plot_bgcolor="#ffffff", paper_bgcolor="#ffffff",
+        legend=dict(orientation="h", yanchor="top", y=-0.3, xanchor="center", x=0.5, font=dict(size=10)),
+        height=340, margin=dict(l=70, r=20, t=60, b=80),
+        hovermode="x unified",
+    )
+
+    fig_rev = go.Figure()
+    for key, s in streams.items():
+        cum_rev, running = [], 0
+        for v in s["revenue_impact"]:
+            running += v
+            cum_rev.append(running / 1_000_000_000)
+        fig_rev.add_trace(go.Scatter(
+            x=years, y=cum_rev, mode="lines+markers",
+            name=f"{s['label']} cumulative revenue lost",
+            line=dict(color=s["color"], width=2), marker=dict(size=5),
+        ))
+    fig_rev.update_layout(
+        title={"text": "Cumulative Government Revenue Foregone (J$ billions)", "font": {"size": 14}},
+        xaxis=dict(title="Year"),
+        yaxis=dict(title="Cumulative revenue foregone (J$ bn)"),
+        plot_bgcolor="#ffffff", paper_bgcolor="#ffffff",
+        legend=dict(orientation="h", yanchor="top", y=-0.3, xanchor="center", x=0.5, font=dict(size=10)),
+        height=340, margin=dict(l=70, r=20, t=60, b=80),
+        hovermode="x unified",
+    )
+
+    # ── Plain-English summary ─────────────────────────────────────────────
+    summary_lines = []
+    all_on_track = True
+    for key, s in streams.items():
+        if idx_2030 is not None:
+            proj = s["penetration"][idx_2030]
+            gap  = s["target"] - proj
+            if gap > 0.5:
+                all_on_track = False
+                summary_lines.append(
+                    f"{s['label']}: {proj:.1f}% by 2030 "
+                    f"({gap:.1f} pp short of {s['target']}% target)"
+                )
+            else:
+                summary_lines.append(
+                    f"{s['label']}: {proj:.1f}% by 2030 "
+                    f"(on track for {s['target']}% target)"
+                )
+
+    if summary_lines:
+        if all_on_track:
+            summary_intro  = "At current settings, all streams are on track for 2030:"
+            summary_bg     = "#E8F8F5"
+            summary_border = "#1A9E75"
+            summary_color  = "#0E2A24"
+        else:
+            summary_intro  = "At current settings, one or more streams fall short of 2030 targets:"
+            summary_bg     = "#FEF9E7"
+            summary_border = "#E0A106"
+            summary_color  = "#7D6608"
+        plain_english = html.Div([
+            html.P(summary_intro,
+                   style={"fontWeight": "600", "margin": "0 0 6px",
+                          "fontSize": "13px", "color": summary_color}),
+            html.Ul(
+                [html.Li(line, style={"fontSize": "13px", "color": summary_color})
+                 for line in summary_lines],
+                style={"margin": "0", "paddingLeft": "18px"},
+            ),
+        ], style={
+            "backgroundColor": summary_bg,
+            "border": f"1px solid {summary_border}",
+            "borderLeft": f"4px solid {summary_border}",
+            "padding": "12px 16px", "borderRadius": "4px",
+            "marginBottom": "20px",
+        })
     else:
-        content = placeholder
-    return html.Div([header, content])
+        plain_english = html.P(
+            "Extend the projection horizon to include 2030 to see the target gap summary.",
+            style={"fontSize": "13px", "color": "#888", "marginBottom": "16px"},
+        )
+
+    summary_cards = html.Div([
+        plain_english,
+        html.Div("2030 target gap", style={**section_banner, "marginTop": "4px"}),
+        html.Div(target_cards, style={"display": "flex", "gap": "12px",
+                                      "flexWrap": "wrap", "marginBottom": "8px"}),
+    ])
+
+    return summary_cards, fig_pen, fig_co2, fig_rev
+
+
+@app.callback(
+    Output("tab3-fuel-chart", "figure"),
+    Input("effective-fuel-price-store", "data"),
+)
+def update_tab3_chart(fuel_price):
+    fig = px.line(
+        fuel_df,
+        x="Date",
+        y=["Gasolene 87", "Gasolene 90", "Auto Diesel"],
+        title="Petrojam Weekly Pump Prices — Jamaica (J$/litre)",
+        labels={"value": "Price (J$/litre)", "variable": "Fuel Type"},
+        color_discrete_map={
+            "Gasolene 87":  "#2E75B6",
+            "Gasolene 90":  "#1A7A6E",
+            "Auto Diesel":  "#C55A11",
+        }
+    )
+    if fuel_price is not None:
+        fig.add_hline(
+            y=fuel_price,
+            line_dash="dash",
+            line_color="#888",
+            annotation_text=f"Current input: J${fuel_price}",
+            annotation_position="top left"
+        )
+    fig.update_layout(
+        plot_bgcolor="#ffffff",
+        paper_bgcolor="#ffffff",
+        legend_title_text="",
+        hovermode="x unified",
+        margin={"t": 50, "b": 40, "l": 60, "r": 20},
+    )
+    return fig
+
+
+@app.callback(
+    Output("m6-income-fig",        "figure"),
+    Output("m6-income-fig",        "style"),
+    Output("m6-chart-placeholder", "style"),
+    Output("m6-vehicle-cards",     "children"),
+    Output("m6-crossover-cards",   "children"),
+    Input("m6-trips-per-day",      "value"),
+    Input("m6-trip-km",            "value"),
+    Input("m6-fare",               "value"),
+    Input("m6-days-per-week",      "value"),
+    Input("m6-ownership-years",    "value"),
+    Input("m6-charging-scenario",  "value"),
+    Input("m6-custom-rate",        "value"),
+    Input("m6-probox-downpayment", "value"),
+    Input("m6-probox-loan-rate",   "value"),
+    Input("m6-probox-loan-term",   "value"),
+    Input("m6-yuan-downpayment",   "value"),
+    Input("m6-yuan-loan-rate",     "value"),
+    Input("m6-yuan-loan-term",     "value"),
+    Input("m6-leaf-downpayment",   "value"),
+    Input("m6-leaf-loan-rate",     "value"),
+    Input("m6-leaf-loan-term",     "value"),
+    Input("effective-fuel-price-store", "data"),
+    Input("public-charging-rate",  "value"),
+)
+def calculate_module6(
+    trips_per_day, trip_km, fare, days_per_week, ownership_years,
+    charging_scenario, custom_rate,
+    probox_dp, probox_rate, probox_term,
+    yuan_dp, yuan_rate, yuan_term,
+    leaf_dp, leaf_rate, leaf_term,
+    fuel_price, public_rate,
+):
+
+    no_chart  = {"display": "none"}
+    show_chart = {"display": "block"}
+    show_ph   = {"color": "#aaa", "fontSize": "13px", "marginTop": "40px", "textAlign": "center"}
+    hide_ph   = {"display": "none"}
+
+    required = [trips_per_day, trip_km, fare, days_per_week, fuel_price, public_rate]
+    if not all(r is not None for r in required):
+        return go.Figure(), no_chart, show_ph, None, None
+
+    # Annual volumes
+    km_per_year      = trips_per_day * trip_km * days_per_week * 52
+    trips_per_year   = trips_per_day * days_per_week * 52
+    revenue_per_year = trips_per_year * fare
+
+    # EV effective charging rate
+    if charging_scenario == "public":
+        ev_rate = public_rate
+        charging_note = f"Public charging only at J${public_rate}/kWh."
+    elif charging_scenario == "fleet_hq":
+        ev_rate = FLEET_HQ_CHARGE_RATE_JMD_PER_KWH
+        charging_note = f"Fleet HQ install at J${FLEET_HQ_CHARGE_RATE_JMD_PER_KWH}/kWh estimated."
+    elif charging_scenario == "custom":
+        ev_rate = custom_rate if custom_rate else public_rate
+        charging_note = f"Custom rate J${ev_rate}/kWh."
+    else:
+        ev_rate = 0.6 * FLEET_HQ_CHARGE_RATE_JMD_PER_KWH + 0.4 * public_rate
+        charging_note = f"Mix: 60% fleet HQ + 40% public = J${ev_rate:.0f}/kWh blended."
+
+    # Per-vehicle loan params
+    loan_params = {
+        "probox":    (probox_dp or 20, probox_rate or 11.0, probox_term or 3),
+        "yuan_plus": (yuan_dp   or 10, yuan_rate   or 9.0,  yuan_term   or 5),
+        "leaf":      (leaf_dp   or 20, leaf_rate   or 13.0, leaf_term   or 4),
+    }
+
+    def pmt(principal, annual_rate_pct, term_years):
+        if not term_years:
+            return 0
+        r = (annual_rate_pct / 100) / 12
+        n = int(term_years * 12)
+        if r > 0 and n > 0:
+            return principal * r * (1 + r)**n / ((1 + r)**n - 1)
+        return principal / max(n, 1)
+
+    # Per-vehicle calculations
+    results = {}
+    for key, v in TAXI_VEHICLES.items():
+        price = v.get("price_jmd") or v.get("price_estimate_jmd")
+        dp_pct, lr, lt = loan_params[key]
+        downpayment     = price * (dp_pct / 100)
+        monthly_payment = pmt(price - downpayment, lr, lt)
+
+        if v["type"] == "ICE":
+            energy_cost_per_km = (v["consumption_urban"] / 100) * fuel_price
+        else:
+            energy_cost_per_km = (v["consumption_measured"] / 100) * ev_rate
+
+        results[key] = {
+            "label": v["label"],
+            "price": price,
+            "downpayment": downpayment,
+            "monthly_payment": monthly_payment,
+            "annual_loan_payment": monthly_payment * 12,
+            "annual_energy_cost": energy_cost_per_km * km_per_year,
+            "annual_maintenance": v["annual_maintenance_jmd"],
+            "energy_cost_per_km": energy_cost_per_km,
+            "type": v["type"],
+            "notes": v["notes"],
+            "loan_term_years": lt,
+        }
+
+    # ── Vehicle summary cards ──
+    card = {"backgroundColor": "#ffffff", "border": "1px solid #e0e0e0",
+            "borderRadius": "6px", "padding": "12px 14px",
+            "flex": "1", "minWidth": "130px", "textAlign": "center"}
+    big  = {"fontSize": "18px", "fontWeight": "700", "margin": "4px 0"}
+    tiny = {"fontSize": "12px", "color": "#777", "margin": "0"}
+
+    vehicle_rows = []
+    for key in ["probox", "yuan_plus", "leaf"]:
+        r = results[key]
+        annual_net = revenue_per_year - (r["annual_energy_cost"] + r["annual_maintenance"] + r["annual_loan_payment"])
+        net_color  = "#1A9E75" if annual_net > 0 else "#C0392B"
+        type_color = "#C55A11" if r["type"] == "ICE" else "#1A9E75"
+        vehicle_rows.append(html.Div([
+            html.Div([
+                html.Span(r["label"], style={"fontWeight": "700", "fontSize": "13px", "color": type_color}),
+                html.Span(f"  {r['notes']}", style={"fontSize": "11px", "color": "#888"}),
+            ], style={"marginBottom": "8px"}),
+            html.Div([
+                html.Div([html.P("Purchase price", style=tiny),
+                          html.P(f"J${r['price']:,.0f}", style={**big, "color": "#1F3864"})], style=card),
+                html.Div([html.P("Monthly loan", style=tiny),
+                          html.P(f"J${r['monthly_payment']:,.0f}", style={**big, "color": "#C55A11"})], style=card),
+                html.Div([html.P("Energy/km", style=tiny),
+                          html.P(f"J${r['energy_cost_per_km']:.2f}", style={**big, "color": type_color})], style=card),
+                html.Div([html.P("Net annual income", style=tiny),
+                          html.P(f"J${annual_net:,.0f}" if annual_net >= 0 else f"-J${abs(annual_net):,.0f}",
+                                 style={**big, "color": net_color})], style=card),
+            ], style={"display": "flex", "gap": "8px", "flexWrap": "wrap", "marginBottom": "10px"}),
+        ], style={"backgroundColor": "#fff", "border": "1px solid #e0e0e0",
+                  "borderRadius": "6px", "padding": "12px 16px", "marginBottom": "8px"}))
+
+    vehicle_cards = html.Div([
+        html.P(
+            f"Revenue: J${revenue_per_year:,.0f}/yr  ·  "
+            f"{trips_per_day:.0f} trips/day  ·  "
+            f"{km_per_year:,.0f} km/yr  ·  {charging_note}",
+            style={"fontSize": "12px", "color": "#555", "marginBottom": "10px"},
+        ),
+        *vehicle_rows,
+    ])
+
+    # ── Multi-year cumulative income chart ──
+    years     = int(ownership_years) if ownership_years else 5
+    year_list = list(range(0, years + 1))
+    fig       = go.Figure()
+    colors    = {"probox": "#C55A11", "yuan_plus": "#1A9E75", "leaf": "#2E75B6"}
+    trajectories = {}
+
+    for key in ["probox", "yuan_plus", "leaf"]:
+        r  = results[key]
+        lt = r["loan_term_years"]
+        cumulative_net = []
+        running = -r["downpayment"]
+        for y in year_list:
+            if y == 0:
+                cumulative_net.append(running)
+                continue
+            annual_cost = r["annual_energy_cost"] + r["annual_maintenance"]
+            if y <= lt:
+                annual_cost += r["annual_loan_payment"]
+            running += revenue_per_year - annual_cost
+            cumulative_net.append(running)
+        trajectories[key] = cumulative_net
+        fig.add_trace(go.Scatter(
+            x=year_list, y=[v / 1_000_000 for v in cumulative_net],
+            mode="lines+markers", name=results[key]["label"],
+            line=dict(color=colors[key], width=2), marker=dict(size=6),
+        ))
+
+    def find_crossover(ev_traj, ice_traj):
+        for i in range(1, len(year_list)):
+            prev_diff = ev_traj[i-1] - ice_traj[i-1]
+            curr_diff = ev_traj[i]   - ice_traj[i]
+            if prev_diff < 0 and curr_diff >= 0:
+                frac = prev_diff / (prev_diff - curr_diff)
+                return (i - 1) + frac
+        return None
+
+    yuan_crossover = find_crossover(trajectories["yuan_plus"], trajectories["probox"])
+    leaf_crossover = find_crossover(trajectories["leaf"],      trajectories["probox"])
+
+    for label, cross, color in [("Yuan Plus overtakes", yuan_crossover, "#1A9E75"),
+                                 ("Leaf overtakes",      leaf_crossover, "#2E75B6")]:
+        if cross is not None and cross <= years:
+            fig.add_vline(x=cross, line_dash="dash", line_color=color,
+                          annotation_text=label, annotation_position="top",
+                          annotation_font_color=color, annotation_font_size=10)
+
+    fig.add_hline(y=0, line_dash="dot", line_color="#888",
+                  annotation_text="Break-even", annotation_position="top left",
+                  annotation_font_size=10)
+    fig.update_layout(
+        title={"text": f"Cumulative driver net income over {years} years (J$ millions)",
+               "font": {"size": 14}},
+        xaxis=dict(title="Year", dtick=1),
+        yaxis=dict(title="Cumulative net income (J$ millions)"),
+        plot_bgcolor="#ffffff", paper_bgcolor="#ffffff",
+        hovermode="x unified",
+        legend=dict(orientation="h", yanchor="top", y=-0.2, xanchor="center", x=0.5, font=dict(size=10)),
+        height=440, margin=dict(l=60, r=20, t=60, b=100),
+    )
+
+    # ── Crossover cards ──
+    def crossover_card(label, crossover_years, ev_color):
+        if crossover_years is None:
+            value_text = "Does not overtake"
+            sub_text   = f"Within the {years}-year horizon. Extend ownership to check further."
+            value_color = "#C0392B"
+        else:
+            yrs    = int(crossover_years)
+            months = int(round((crossover_years - yrs) * 12))
+            if months == 12:
+                yrs += 1; months = 0
+            value_text  = (f"{months} months" if yrs == 0 else
+                           f"{yrs} years"     if months == 0 else
+                           f"{yrs} yr, {months} mo")
+            sub_text    = "EV cumulative net income first exceeds the Probox baseline."
+            value_color = ev_color
+        return html.Div([
+            html.P(label,      style={"fontSize": "12px", "color": "#777", "margin": "0 0 4px"}),
+            html.P(value_text, style={"fontSize": "20px", "fontWeight": "700",
+                                      "color": value_color, "margin": "4px 0"}),
+            html.P(sub_text,   style={"fontSize": "11px", "color": "#888", "margin": "4px 0 0"}),
+        ], style={"backgroundColor": "#ffffff", "border": "1px solid #e0e0e0",
+                  "borderRadius": "6px", "padding": "14px 18px",
+                  "flex": "1", "minWidth": "200px", "textAlign": "center"})
+
+    crossover_cards = html.Div([
+        html.P("When does the EV overtake the Probox?",
+               style={"fontWeight": "700", "fontSize": "14px", "marginBottom": "8px",
+                      "color": "#0E2A24"}),
+        html.Div([
+            crossover_card("BYD Yuan Plus vs Probox", yuan_crossover, "#1A9E75"),
+            crossover_card("Nissan Leaf vs Probox",   leaf_crossover, "#2E75B6"),
+        ], style={"display": "flex", "gap": "10px", "flexWrap": "wrap"}),
+        html.P("Crossover is when cumulative EV net income first exceeds the ICE baseline.",
+               style={"fontSize": "11px", "color": "#888", "marginTop": "8px"}),
+    ])
+
+    return fig, show_chart, hide_ph, vehicle_cards, crossover_cards
+
+
+@app.callback(
+    Output("m6-custom-rate-wrapper", "style"),
+    Input("m6-charging-scenario", "value"),
+)
+def toggle_m6_custom_rate(scenario):
+    if scenario == "custom":
+        return {"display": "block"}
+    return {"display": "none"}
+
+
+@app.callback(
+    Output("m6-trips-per-day",        "value"),
+    Output("m6-trips-per-day-slider", "value"),
+    Input("m6-trips-per-day",         "value"),
+    Input("m6-trips-per-day-slider",  "value"),
+    prevent_initial_call=True,
+)
+def sync_m6_trips(inp_val, slider_val):
+    ctx = dash.callback_context
+    tid = ctx.triggered[0]["prop_id"].split(".")[0]
+    if tid == "m6-trips-per-day":
+        return dash.no_update, inp_val
+    return slider_val, dash.no_update
+
+
+@app.callback(
+    Output("m6-ownership-years",        "value"),
+    Output("m6-ownership-years-slider", "value"),
+    Input("m6-ownership-years",         "value"),
+    Input("m6-ownership-years-slider",  "value"),
+    prevent_initial_call=True,
+)
+def sync_m6_ownership(inp_val, slider_val):
+    ctx = dash.callback_context
+    tid = ctx.triggered[0]["prop_id"].split(".")[0]
+    if tid == "m6-ownership-years":
+        return dash.no_update, inp_val
+    return slider_val, dash.no_update
+
+
+@app.callback(
+    Output("m6-probox-loan-rate",        "value"),
+    Output("m6-probox-loan-rate-slider", "value"),
+    Input("m6-probox-loan-rate",         "value"),
+    Input("m6-probox-loan-rate-slider",  "value"),
+    prevent_initial_call=True,
+)
+def sync_m6_probox_rate(inp_val, slider_val):
+    ctx = dash.callback_context
+    tid = ctx.triggered[0]["prop_id"].split(".")[0]
+    if tid == "m6-probox-loan-rate":
+        return dash.no_update, inp_val
+    return slider_val, dash.no_update
+
+
+@app.callback(
+    Output("m6-probox-loan-term",        "value"),
+    Output("m6-probox-loan-term-slider", "value"),
+    Input("m6-probox-loan-term",         "value"),
+    Input("m6-probox-loan-term-slider",  "value"),
+    prevent_initial_call=True,
+)
+def sync_m6_probox_term(inp_val, slider_val):
+    ctx = dash.callback_context
+    tid = ctx.triggered[0]["prop_id"].split(".")[0]
+    if tid == "m6-probox-loan-term":
+        return dash.no_update, inp_val
+    return slider_val, dash.no_update
+
+
+@app.callback(
+    Output("m6-yuan-loan-rate",        "value"),
+    Output("m6-yuan-loan-rate-slider", "value"),
+    Input("m6-yuan-loan-rate",         "value"),
+    Input("m6-yuan-loan-rate-slider",  "value"),
+    prevent_initial_call=True,
+)
+def sync_m6_yuan_rate(inp_val, slider_val):
+    ctx = dash.callback_context
+    tid = ctx.triggered[0]["prop_id"].split(".")[0]
+    if tid == "m6-yuan-loan-rate":
+        return dash.no_update, inp_val
+    return slider_val, dash.no_update
+
+
+@app.callback(
+    Output("m6-yuan-loan-term",        "value"),
+    Output("m6-yuan-loan-term-slider", "value"),
+    Input("m6-yuan-loan-term",         "value"),
+    Input("m6-yuan-loan-term-slider",  "value"),
+    prevent_initial_call=True,
+)
+def sync_m6_yuan_term(inp_val, slider_val):
+    ctx = dash.callback_context
+    tid = ctx.triggered[0]["prop_id"].split(".")[0]
+    if tid == "m6-yuan-loan-term":
+        return dash.no_update, inp_val
+    return slider_val, dash.no_update
+
+
+@app.callback(
+    Output("m6-leaf-loan-rate",        "value"),
+    Output("m6-leaf-loan-rate-slider", "value"),
+    Input("m6-leaf-loan-rate",         "value"),
+    Input("m6-leaf-loan-rate-slider",  "value"),
+    prevent_initial_call=True,
+)
+def sync_m6_leaf_rate(inp_val, slider_val):
+    ctx = dash.callback_context
+    tid = ctx.triggered[0]["prop_id"].split(".")[0]
+    if tid == "m6-leaf-loan-rate":
+        return dash.no_update, inp_val
+    return slider_val, dash.no_update
+
+
+@app.callback(
+    Output("m6-leaf-loan-term",        "value"),
+    Output("m6-leaf-loan-term-slider", "value"),
+    Input("m6-leaf-loan-term",         "value"),
+    Input("m6-leaf-loan-term-slider",  "value"),
+    prevent_initial_call=True,
+)
+def sync_m6_leaf_term(inp_val, slider_val):
+    ctx = dash.callback_context
+    tid = ctx.triggered[0]["prop_id"].split(".")[0]
+    if tid == "m6-leaf-loan-term":
+        return dash.no_update, inp_val
+    return slider_val, dash.no_update
+
+
+@app.callback(
+    Output("module-instructions", "children"),
+    Input("active-tab-store", "data"),
+)
+def update_module_instructions(active_tab):
+    if not active_tab or active_tab == "home":
+        return None
+
+    instructions = {
+        "tab-1": {
+            "title": "EV vs. ICE Total Cost of Ownership Calculator",
+            "summary": (
+                "Compares the full cost of owning a petrol car versus an electric vehicle over your "
+                "chosen ownership period, including purchase price, fuel or electricity, and maintenance. "
+                "The crossover point is the year when cumulative EV costs drop below the ICE baseline."
+            ),
+            "how": (
+                "Select vehicles from the dropdowns, enter a confirmed dealer price for the EV, "
+                "then adjust daily driving distance and ownership years. "
+                "The fuel price comes from the global settings sidebar."
+            ),
+        },
+        "tab-2": {
+            "title": "Route Cost Map",
+            "summary": "Maps operating cost per kilometre across Kingston route-taxi corridors.",
+            "how": "Select a route and vehicle type to see the per-km cost breakdown on the map.",
+        },
+        "tab-3": {
+            "title": "Gas & Energy Price Tracker",
+            "summary": (
+                "Tracks Petrojam published pump prices and JPS electricity tariffs over time, "
+                "showing how the fuel-cost gap between ICE and EV has shifted."
+            ),
+            "how": "Use the date range selector to zoom in on a period of interest.",
+        },
+        "tab-4": {
+            "title": "Fleet Penetration Simulator (S-Curve)",
+            "summary": (
+                "Projects how quickly Jamaica's private, public, and government EV fleets could grow "
+                "using a logistic S-curve model. Choose a scenario preset or fine-tune the steepness "
+                "and midpoint year to build your own projection."
+            ),
+            "how": (
+                "Click Conservative, Base, or Optimistic for each fleet stream to load a calibrated "
+                "scenario, or open the Fine-tune section to set your own steepness and midpoint. "
+                "The 2030 gap summary updates automatically."
+            ),
+        },
+        "tab-5": {
+            "title": "Emissions Impact Calculator",
+            "summary": (
+                "Calculates lifetime CO₂ savings of switching from an ICE vehicle to an EV, "
+                "accounting for Jamaica's grid carbon intensity and the manufacturing emissions "
+                "premium of producing a new battery pack."
+            ),
+            "how": (
+                "Select vehicles and enter annual mileage. The carbon payback line shows when the "
+                "EV's lifetime emissions fall below the ICE baseline. "
+                "Adjust the grid mix slider to test cleaner or dirtier electricity scenarios."
+            ),
+        },
+        "tab-6": {
+            "title": "Taxi Feasibility Tool",
+            "summary": (
+                "Simulates the financial position of a Kingston route-taxi driver operating a "
+                "Toyota Probox (ICE baseline), BYD Yuan Plus 2024, or used Nissan Leaf, "
+                "showing net annual income and the year the EV overtakes the Probox."
+            ),
+            "how": (
+                "Enter trips per day, fare per trip, and trip distance. "
+                "Adjust the loan terms for each vehicle separately under Loan financing. "
+                "The crossover cards update automatically as you change inputs."
+            ),
+        },
+        "tab-7": {
+            "title": "Fiscal Policy & Duty Tracker",
+            "summary": (
+                "Tracks Jamaica's import duty, GCT, and SCT concessions on EVs relative to "
+                "ICE vehicles, and shows how the tax gap has changed since the Vision 2030 "
+                "policy package was introduced."
+            ),
+            "how": "Use the toggle to switch between landed-cost view and effective-tax-rate view.",
+        },
+        "tab-8": {
+            "title": "Caribbean Regional Comparison",
+            "summary": (
+                "Compares EV adoption, fuel prices, grid carbon intensity, and policy incentives "
+                "across Caribbean island states, contextualising Jamaica's position in the region."
+            ),
+            "how": "Select countries to include in the comparison and choose a metric from the dropdown.",
+        },
+    }
+
+    if active_tab not in instructions:
+        return None
+
+    info = instructions[active_tab]
+    return html.Div([
+        html.P(info["title"],
+               style={"fontSize": "17px", "fontWeight": "700", "color": "#0E2A24",
+                      "margin": "0 0 4px"}),
+        html.P(info["summary"],
+               style={"fontSize": "13px", "color": "#444", "margin": "0 0 4px",
+                      "lineHeight": "1.5"}),
+        html.P(["How to use: ", html.Em(info["how"])],
+               style={"fontSize": "12px", "color": "#666", "margin": "0",
+                      "fontStyle": "italic"}),
+    ], style={
+        "backgroundColor": "#F0F7F4",
+        "border": "1px solid #BEE0D6",
+        "borderRadius": "6px",
+        "padding": "12px 16px",
+        "marginBottom": "16px",
+    })
+
+
+def make_preset_callback(stream_key):
+    @app.callback(
+        Output(f"m4-{stream_key}-steepness", "value"),
+        Output(f"m4-{stream_key}-midpoint", "value"),
+        Output(f"m4-{stream_key}-preset-note", "children"),
+        Input(f"m4-{stream_key}-preset-conservative", "n_clicks"),
+        Input(f"m4-{stream_key}-preset-base", "n_clicks"),
+        Input(f"m4-{stream_key}-preset-optimistic", "n_clicks"),
+        prevent_initial_call=True,
+    )
+    def _set_preset(cons, base, opt, _key=stream_key):
+        ctx = dash.callback_context
+        if not ctx.triggered:
+            return dash.no_update, dash.no_update, dash.no_update
+        btn_id = ctx.triggered[0]["prop_id"].split(".")[0]
+        if "conservative" in btn_id:
+            level = "conservative"
+        elif "optimistic" in btn_id:
+            level = "optimistic"
+        else:
+            level = "base"
+        p = SCURVE_PRESETS[_key][level]
+        return p["steepness"], p["midpoint_year"], p["note"]
+
+for _stream in ["private", "public", "goj"]:
+    make_preset_callback(_stream)
+
 
 # ── Run ───────────────────────────────────────────────────────────
+app.layout = serve_layout
+
 if __name__ == "__main__":
     app.run(debug=True, port=8050)
