@@ -31,7 +31,15 @@ Two of three headline targets cannot be measured. Registered vehicles are not di
 
 The government fleet figure is the weakest input in any live calculation and drives the entire government stream of the fleet model.
 
-### 8.1.5 Methodological Limitations
+### 8.1.5 Maintenance Risk in the Fuel Price Series
+
+The fuel price series cannot be collected automatically, for the reasons set out in Section 3.6, and is maintained by manual weekly entry. This is a limitation of a different kind from the others here: it does not bias any result, but it will silently degrade the dashboard if nobody performs it.
+
+The risk is concrete. Every running-cost figure in every module derives from the most recent price in that series. A dashboard left unattended will not display an error; it will display confident figures based on a price that is months old. Two mitigations are in place. The startup log states the source and date of the price and exchange rate it loaded, so a stale series is visible to anyone who starts the application. And entry runs through a validation tool applying the same date, range and duplicate checks the automated path would have used, so manual entry is not a lower standard of care than automated collection, only a slower one.
+
+The dependency ends if Petrojam grants access or supplies the series directly. Until then it should be treated as a standing obligation attached to the dashboard rather than as a solved problem.
+
+### 8.1.6 Methodological Limitations
 
 **Glider parity.** The manufacturing premium assumes the body shell and non-battery drivetrain of a BEV and an equivalent ICE vehicle carry comparable production emissions. Electric vehicles are heavier and use more aluminium, so the derived premium is a lower bound.
 
@@ -41,11 +49,11 @@ The government fleet figure is the weakest input in any live calculation and dri
 
 **Barbadian adoption figures are dealer-reported**, not registry data, and Barbados has a substantial used-import channel. They are not strictly the same measure as the IEA sales-share figures used for other countries.
 
-### 8.1.6 Regional Data Sparsity
+### 8.1.7 Regional Data Sparsity
 
 Nine of nineteen countries appear in the summary table but on neither chart, because no published battery electric vehicle sales share exists for them. Caribbean vehicle registries do not generally publish it. Fields were left empty rather than estimated, which is why the regional charts look sparser than the table.
 
-### 8.1.7 Errors Identified and Corrected During the Study
+### 8.1.8 Errors Identified and Corrected During the Study
 
 Recorded because the pattern is instructive rather than to catalogue mistakes.
 
@@ -57,7 +65,11 @@ Recorded because the pattern is instructive rather than to catalogue mistakes.
 
 **A stale Trinidad fuel price.** A value of US$0.40 per litre, years out of date, supported a confident and entirely false conclusion about why Trinidad's zero-duty regime had not produced adoption. The verified May 2026 figure is US$1.14.
 
-Three of these four were caught by checking a figure against its source rather than accepting it because it was already in the dataset.
+**Corrupt scraped fuel prices.** The original price scraper matched `Label: value` patterns over the prose of Petrojam's weekly announcement pages. It produced two rows in July 2026 in which the 87 and 90 octane figures were exactly right while the diesel figure was low by about J$57.50 and the date was wrong by six to eight days. A regex for "Diesel" over prose can match any of several diesel products, and the date it finds may be a publication date rather than the price week. The rows were removed and the collector rewritten to read the structured price table by column header, which removes the ambiguity rather than patching around it. **Partially correct output is the hardest kind to notice: two of the four fields were right, which is exactly what makes the other two easy to accept.**
+
+**Omitted resale value in the taxi model.** The taxi feasibility module tracked cash flow only, so at the end of the ownership period the vehicle was treated as worthless. This understated every option and understated them unequally, because the more expensive the vehicle the more capital was silently written off. At five years the surveyed combustion van gave up J$952,657 of unrecorded residual value against J$2,867,792 for the new electric SUV and J$1,847,578 for the used electric hatchback: an average of roughly J$1.4 million more surrendered by the electric vehicles than by the combustion vehicle, in a module whose sole purpose is to compare them. Corrected by adding the residual value on the same declining-balance basis used elsewhere in the dashboard, less any loan still outstanding at the point of sale. **The omission favoured no vehicle deliberately; it simply penalised whichever cost more, which in this comparison is always the electric one.**
+
+Five of these six were caught by checking a figure against its source, or by asking what a model leaves out, rather than accepting a number because it was already in the dataset.
 
 ---
 
@@ -65,7 +77,7 @@ Three of these four were caught by checking a figure against its source rather t
 
 **1.** For the private buyer the answer is conditional. A new electric vehicle does not overtake a used petrol vehicle within ten years at typical private mileage, but the result reverses under higher mileage, home charging, or a used-electric against new-petrol pairing. This is why the output is a calculator rather than a verdict.
 
-**2.** For the taxi operator the answer is specific and actionable. Charging arrangement produces a J$4.5 million five-year swing, larger than any vehicle price difference. Only home charging and JPS overnight are profitable. An electric taxi without depot or home charging is not currently viable, and even with it does not yet beat a used Probox over five years.
+**2.** For the taxi operator the answer is specific and actionable. Charging arrangement produces a J$4,507,367 five-year swing, larger than the price difference between any two vehicles in the database. Counting resale value, an electric taxi is profitable over five years on every charging arrangement except the JPS evening peak, and on home or overnight charging it beats the used Probox baseline by roughly J$1.35 million. The case for depot or home charging rests on the size of the swing rather than on the alternatives losing money. See Section 6.3: an earlier version of this conclusion, produced before resale value was counted, held that only the two cheapest arrangements were profitable and that the electric taxi did not beat the Probox. Both statements were artefacts of the omission.
 
 **3.** Electric vehicles are cleaner in Jamaica, with carbon payback of 2.0 years for a BYD Yuan Plus at the current grid, and electric buses reduce emissions by 57% against diesel. Both results are conditional on grid intensity, which the utility is not required to publish.
 
@@ -94,7 +106,6 @@ Three of these four were caught by checking a figure against its source rather t
 **Dashboard.**
 
 - Complete the Route Cost Map, the one unbuilt module. Corridor data has been identified: Half Way Tree to Papine, Red Hills, Three Miles, Downtown Crossroads, Manor Park, and Backgate to Spanish Town.
-- Add depreciation and resale value to the taxi module. Their absence currently penalises the electric case in a five-year comparison.
 - Add the Chilean benchmark of 9.6 tonnes CO₂ avoided per taxi per year as a validation reference.
 
 **Analysis.**

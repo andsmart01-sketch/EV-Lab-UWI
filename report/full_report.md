@@ -1,10 +1,3 @@
----
-title: "Electric Vehicles in Jamaica: Cost, Emissions and Policy Implementation"
-subtitle: "An eight-week quantitative study with an interactive decision-support dashboard"
-author: "Andrew Smart | Supervisor: Dr Louis-Ray Harris | Department of Physics, University of the West Indies, Mona"
-date: "8 June - 3 August 2026"
----
-
 # Section 1: Project Overview
 
 **Author:** Andrew Smart
@@ -79,6 +72,9 @@ Government of Jamaica. (2023). *National electric vehicle policy*. Ministry of E
 ---
 
 *Next section: Section 2, Background and Literature Review*
+
+---
+
 # Section 2: Background and Literature Review
 
 ---
@@ -154,6 +150,9 @@ Government of Jamaica. (2023). *National electric vehicle policy*. Ministry of E
 Turnbull, K. (2024). *Pioneering electric mobility: A framework for EV battery management in the Caribbean* [Final report]. Department of Physics, University of the West Indies, Mona.
 
 United Nations Environment Programme. (2025, April 7). *Caribbean leading the charge to electric mobility*.
+
+---
+
 # Section 3: Data Sources and Stakeholders
 
 ---
@@ -234,7 +233,21 @@ Three of the uncontacted bodies are, on the evidence of this study, more likely 
 
 ---
 
-## 3.6 Data Not Obtained
+## 3.6 Fuel Prices: Published but Not Machine-Readable
+
+Petrojam publishes its weekly ex-refinery reference prices as an HTML table at petrojam.com/price/, covering ten products across 59 pages of history. The figures are public, and the price series underpinning every fuel cost in this dashboard comes from them.
+
+They cannot be collected automatically. Requests from a plainly identified research client are refused with HTTP 403 by an AWS load balancer, on every path tried including /robots.txt itself. The refusal is not a crawling policy: the site's robots.txt reads `User-agent: * / Disallow:`, which permits automated access, and the price page carries `meta-robots: index, follow`. The block sits in front of the site rather than in it, and appears to reject clients that do not present as a browser.
+
+Getting past it would require the request to misrepresent itself as a browser. That was not done. A state-owned public body returning 403 to an identified client is declining, and the appropriate response to a decline is to ask rather than to change costume until the answer changes. A request has been drafted to Petrojam's public enquiries address, with the Access to Information Act as the fallback route, and it names the specific technical finding so the operator can act on it.
+
+Two consequences follow. The price series is maintained by manual entry, with a validated paste tool and the same range and duplicate checks the automated path would have applied. And the freshness of the series depends on a person, which is recorded in Section 8 as a maintenance risk rather than presented as solved.
+
+A separate observation is worth recording for anyone repeating this. A plain client and a browser were served *different* copies of the same page on the same day: the browser showed prices to 30 July 2026, while a plain request returned a cached copy ending 16 July. Any future automated collection needs a staleness check comparing the newest row served against the newest row already held, or it will silently collect nothing while appearing to succeed.
+
+---
+
+## 3.7 Data Not Obtained
 
 The following were sought and not found in any public source:
 
@@ -246,6 +259,9 @@ The following were sought and not found in any public source:
 - Confirmed transaction prices for used vehicles, as distinct from asking prices
 
 Each absence has a consequence recorded in Section 8.
+
+---
+
 # Section 4: EV Policy Gap Analysis
 
 ---
@@ -327,6 +343,9 @@ The evidence does not support a characterisation of Jamaica as either on track o
 The fiscal instruments were delivered promptly and have been extended: duty reduced from 30% to 10%, licence fees waived, General Consumption Tax exempted, and the framework widened to electric bikes by the Road Traffic (Licence Duties) Order 2024. The administrative commitments, the standards, guidelines, plans and disclosure requirements, are largely outstanding, and the goal that did succeed succeeded because a utility foundation and a development bank funded it.
 
 That pattern, rather than the aggregate count of incomplete actions, is the substantive finding of this section.
+
+---
+
 # Section 5: Methods
 
 ---
@@ -417,6 +436,9 @@ Nineteen countries, fourteen Caribbean. Fields are left empty rather than estima
 ## 5.8 Implementation
 
 Python 3.11 with Plotly Dash. Vehicle data is held in a single module so that prices, battery capacities and maintenance figures cannot drift between modules. Derived quantities such as the manufacturing premium are computed by function rather than stored, so that correcting an input propagates automatically.
+
+---
+
 # Section 6: Results
 
 ---
@@ -455,18 +477,30 @@ Modelling a BYD Yuan Plus operating 40 trips per day at J$200 per trip, six days
 
 | Charging | Rate (J$/kWh) | 5-year cumulative net |
 |---|---|---|
-| Home, JPS residential | 42.00 | **+J$779,352** |
-| JPS overnight | 50.11 | +J$366,910 |
-| Evergo, flat | 96.00 | −J$1,966,872 |
-| JPS evening peak | 130.63 | −J$3,728,015 |
+| Home, JPS residential | 42.00 | **+J$4,367,089** |
+| JPS overnight | 50.11 | +J$3,954,647 |
+| Evergo, flat | 96.00 | +J$1,620,865 |
+| JPS evening peak | 130.63 | −J$140,278 |
 
 **A J$4.5 million swing produced by a scheduling decision**, larger than the price difference between any two vehicles in the database.
 
-Only the two cheapest arrangements are profitable at all. A driver charging on the JPS evening peak pays 2.6 times what the same driver pays overnight on the same network, and 36% more than Evergo's flat rate.
+A driver charging on the JPS evening peak pays 2.6 times what the same driver pays overnight on the same network, and 36% more than Evergo's flat rate.
 
-The petrol baseline remains ahead: a used Toyota Probox returns J$2,065,890 over the same period. Notably, a **late-model Probox at J$2.3 million returns only J$1,320,960**, less than the older unit, because the additional J$650,000 of purchase price is not recovered by lower servicing within five years. Buying a fresher petrol taxi is not a better decision than keeping an older one.
+Petrol comparison: a used Toyota Probox returns J$3,018,547 over the same period. A **late-model Probox at J$2.3 million returns J$2,533,140**, less than the older unit, because the additional J$650,000 of purchase price is not recovered by lower servicing and slower depreciation within five years. Buying a fresher petrol taxi is not a better decision than keeping an older one.
 
-The conclusion for this audience is therefore specific: an electric taxi in Jamaica is viable only with depot or home charging and disciplined overnight scheduling, and even then does not yet beat a used Probox on a five-year horizon.
+### A correction that changed two conclusions
+
+The figures above are restated. An earlier version of the taxi model tracked cash flow only and therefore treated the vehicle as worthless on the last day of the ownership period. Adding the resale value, less any loan still outstanding, raises every electric figure by J$3,587,737 and the Probox figures by J$952,657 and J$1,212,180 respectively.
+
+Two conclusions reverse.
+
+**Evergo becomes viable.** At a flat J$96/kWh the operator was previously J$1,966,872 down over five years. Counting the asset they still own, they are J$1,620,865 up. The earlier claim that only the two cheapest arrangements are profitable was an artefact of the omission. Only the JPS evening peak now loses money, and it loses only J$140,278, which is close enough to breakeven that it should be read as "no better than not doing it" rather than as a clear loss.
+
+**The electric taxi overtakes the Probox.** On home charging the BYD Yuan Plus returns J$4,367,089 against the used Probox's J$3,018,547, a margin of J$1,348,542. The earlier finding that an electric taxi "does not yet beat a used Probox over five years" was wrong, and wrong in a specific direction: the omission penalised whichever vehicle cost more, and the electric vehicle costs 4.6 times the Probox.
+
+**What did not change is the headline.** The swing between best and worst charging arrangement is J$4,507,367 before the correction and J$4,507,367 after it, to the dollar. Resale value does not depend on when the operator charges, so it adds the same constant to all four rows. The study's clearest finding is unaffected by its most consequential error, which is worth stating plainly because it would be easy to present the correction as either more or less damaging than it was.
+
+The revised conclusion for this audience: an electric taxi in Jamaica is profitable over five years on any charging arrangement except the evening peak, beats the used Probox baseline when charged at home or overnight, and remains acutely sensitive to charging discipline. The case for depot or home charging rests on the size of the swing, not on the alternatives being unprofitable.
 
 **External validation.** Chile's *Mi Taxi Eléctrico* programme reports average savings above 3 million Chilean pesos per driver per year and 9.6 tonnes of CO₂ avoided per vehicle annually across 405 vehicles. The direction and rough magnitude are consistent with the modelled Jamaican results under favourable charging.
 
@@ -534,6 +568,9 @@ Two observations follow. First, utilisation near 1% indicates the binding constr
 Reported in full in Section 4. In summary: of 26 tracked commitments, one confirmed, one in progress, seven partial, fifteen not confirmed, one not implemented, one not started. Fifteen carry a citation.
 
 The single measurable target stands at approximately 0.014% against a 16% goal.
+
+---
+
 # Section 7: Discussion
 
 ---
@@ -613,6 +650,9 @@ A target that cannot be measured cannot be managed, and its absence of reporting
 This study provides the first Jamaica-specific, current-price, user-adjustable quantification of the electric vehicle cost and emissions question, built from prices collected during the study period rather than regional averages.
 
 Its more durable contribution may be methodological. Several widely circulated Jamaican electric vehicle figures do not withstand checking: the 6,606 import figure is routinely presented as a fleet count, JUTC bus numbers vary between sources, and a stale Trinidad fuel price of US$0.40 supported an entirely false conclusion until corrected against a May 2026 compilation. Two errors within this project's own analysis were caught the same way, by checking a figure against its source rather than accepting it because it was already in the dataset.
+
+---
+
 # Section 8: Limitations, Conclusions and Further Work
 
 ---
@@ -646,7 +686,15 @@ Two of three headline targets cannot be measured. Registered vehicles are not di
 
 The government fleet figure is the weakest input in any live calculation and drives the entire government stream of the fleet model.
 
-### 8.1.5 Methodological Limitations
+### 8.1.5 Maintenance Risk in the Fuel Price Series
+
+The fuel price series cannot be collected automatically, for the reasons set out in Section 3.6, and is maintained by manual weekly entry. This is a limitation of a different kind from the others here: it does not bias any result, but it will silently degrade the dashboard if nobody performs it.
+
+The risk is concrete. Every running-cost figure in every module derives from the most recent price in that series. A dashboard left unattended will not display an error; it will display confident figures based on a price that is months old. Two mitigations are in place. The startup log states the source and date of the price and exchange rate it loaded, so a stale series is visible to anyone who starts the application. And entry runs through a validation tool applying the same date, range and duplicate checks the automated path would have used, so manual entry is not a lower standard of care than automated collection, only a slower one.
+
+The dependency ends if Petrojam grants access or supplies the series directly. Until then it should be treated as a standing obligation attached to the dashboard rather than as a solved problem.
+
+### 8.1.6 Methodological Limitations
 
 **Glider parity.** The manufacturing premium assumes the body shell and non-battery drivetrain of a BEV and an equivalent ICE vehicle carry comparable production emissions. Electric vehicles are heavier and use more aluminium, so the derived premium is a lower bound.
 
@@ -656,11 +704,11 @@ The government fleet figure is the weakest input in any live calculation and dri
 
 **Barbadian adoption figures are dealer-reported**, not registry data, and Barbados has a substantial used-import channel. They are not strictly the same measure as the IEA sales-share figures used for other countries.
 
-### 8.1.6 Regional Data Sparsity
+### 8.1.7 Regional Data Sparsity
 
 Nine of nineteen countries appear in the summary table but on neither chart, because no published battery electric vehicle sales share exists for them. Caribbean vehicle registries do not generally publish it. Fields were left empty rather than estimated, which is why the regional charts look sparser than the table.
 
-### 8.1.7 Errors Identified and Corrected During the Study
+### 8.1.8 Errors Identified and Corrected During the Study
 
 Recorded because the pattern is instructive rather than to catalogue mistakes.
 
@@ -672,7 +720,11 @@ Recorded because the pattern is instructive rather than to catalogue mistakes.
 
 **A stale Trinidad fuel price.** A value of US$0.40 per litre, years out of date, supported a confident and entirely false conclusion about why Trinidad's zero-duty regime had not produced adoption. The verified May 2026 figure is US$1.14.
 
-Three of these four were caught by checking a figure against its source rather than accepting it because it was already in the dataset.
+**Corrupt scraped fuel prices.** The original price scraper matched `Label: value` patterns over the prose of Petrojam's weekly announcement pages. It produced two rows in July 2026 in which the 87 and 90 octane figures were exactly right while the diesel figure was low by about J$57.50 and the date was wrong by six to eight days. A regex for "Diesel" over prose can match any of several diesel products, and the date it finds may be a publication date rather than the price week. The rows were removed and the collector rewritten to read the structured price table by column header, which removes the ambiguity rather than patching around it. **Partially correct output is the hardest kind to notice: two of the four fields were right, which is exactly what makes the other two easy to accept.**
+
+**Omitted resale value in the taxi model.** The taxi feasibility module tracked cash flow only, so at the end of the ownership period the vehicle was treated as worthless. This understated every option and understated them unequally, because the more expensive the vehicle the more capital was silently written off. At five years the surveyed combustion van gave up J$952,657 of unrecorded residual value against J$2,867,792 for the new electric SUV and J$1,847,578 for the used electric hatchback: an average of roughly J$1.4 million more surrendered by the electric vehicles than by the combustion vehicle, in a module whose sole purpose is to compare them. Corrected by adding the residual value on the same declining-balance basis used elsewhere in the dashboard, less any loan still outstanding at the point of sale. **The omission favoured no vehicle deliberately; it simply penalised whichever cost more, which in this comparison is always the electric one.**
+
+Five of these six were caught by checking a figure against its source, or by asking what a model leaves out, rather than accepting a number because it was already in the dataset.
 
 ---
 
@@ -680,7 +732,7 @@ Three of these four were caught by checking a figure against its source rather t
 
 **1.** For the private buyer the answer is conditional. A new electric vehicle does not overtake a used petrol vehicle within ten years at typical private mileage, but the result reverses under higher mileage, home charging, or a used-electric against new-petrol pairing. This is why the output is a calculator rather than a verdict.
 
-**2.** For the taxi operator the answer is specific and actionable. Charging arrangement produces a J$4.5 million five-year swing, larger than any vehicle price difference. Only home charging and JPS overnight are profitable. An electric taxi without depot or home charging is not currently viable, and even with it does not yet beat a used Probox over five years.
+**2.** For the taxi operator the answer is specific and actionable. Charging arrangement produces a J$4,507,367 five-year swing, larger than the price difference between any two vehicles in the database. Counting resale value, an electric taxi is profitable over five years on every charging arrangement except the JPS evening peak, and on home or overnight charging it beats the used Probox baseline by roughly J$1.35 million. The case for depot or home charging rests on the size of the swing rather than on the alternatives losing money. See Section 6.3: an earlier version of this conclusion, produced before resale value was counted, held that only the two cheapest arrangements were profitable and that the electric taxi did not beat the Probox. Both statements were artefacts of the omission.
 
 **3.** Electric vehicles are cleaner in Jamaica, with carbon payback of 2.0 years for a BYD Yuan Plus at the current grid, and electric buses reduce emissions by 57% against diesel. Both results are conditional on grid intensity, which the utility is not required to publish.
 
@@ -709,7 +761,6 @@ Three of these four were caught by checking a figure against its source rather t
 **Dashboard.**
 
 - Complete the Route Cost Map, the one unbuilt module. Corridor data has been identified: Half Way Tree to Papine, Red Hills, Three Miles, Downtown Crossroads, Manor Park, and Backgate to Spanish Town.
-- Add depreciation and resale value to the taxi module. Their absence currently penalises the electric case in a five-year comparison.
 - Add the Chilean benchmark of 9.6 tonnes CO₂ avoided per taxi per year as a validation reference.
 
 **Analysis.**
@@ -725,41 +776,3 @@ Three of these four were caught by checking a figure against its source rather t
 The question this study set out to answer was whether Jamaica's 2030 electric vehicle targets are realistic. On the evidence assembled, the targets are not primarily limited by vehicle economics, consumer interest or charger availability, since utilisation of roughly 1% indicates chargers are not the constraint.
 
 They are limited by a bounded incentive, by administrative commitments that have not been delivered, and by an inability to measure progress at all. The most consequential single finding is not any cost or emissions figure. It is that two of the three targets Jamaica set itself cannot be evaluated from anything Jamaica publishes.
-
----
-
-# References
-
-Agencia de Sostenibilidad Energética & Centro de Movilidad Sostenible. (2026). *Electromovilidad en el transporte público menor: resultados, impacto y lecciones de los programas Mi Taxi Eléctrico y Más Transporte Eléctrico*. https://cmsostenible.org/
-
-Bieker, G. (2021). *A global comparison of the life-cycle greenhouse gas emissions of combustion engine and electric passenger cars*. International Council on Clean Transportation. https://theicct.org/publication/a-global-comparison-of-the-life-cycle-greenhouse-gas-emissions-of-combustion-engine-and-electric-passenger-cars/
-
-Caribbean Centre for Renewable Energy and Energy Efficiency. (n.d.). *The future of e-mobility in the Caribbean* [Position paper].
-
-Energy Chamber of Trinidad and Tobago. (2026, May 21). *Gasoline prices rise across most of CARICOM*. https://energynow.tt/blog/gasoline-prices-rise-across-most-of-caricom
-
-Gao, Z., Lin, Z., LaClair, T. J., Liu, C., Li, J.-M., Birky, A. K., & Ward, J. (2017). Battery capacity and recharging needs for electric buses in city transit service. *Energy, 122*, 588-600. https://doi.org/10.1016/j.energy.2017.01.101
-
-Government of Jamaica. (2023). *National electric vehicle policy*. Ministry of Energy, Telecommunications and Transport.
-
-Jamaica Customs Agency. (n.d.). *Are electric motor vehicles exempt from payment of General Consumption Tax (GCT)?* https://jca.gov.jm/faq/are-electric-motor-vehicles-exempt-from-payment-of-general-consumption-tax-gct/
-
-Jamaica Information Service. (2024, December). *Import duty on electric bikes lowered to 10 per cent*. https://jis.gov.jm/import-duty-on-electric-bikes-lowered-to10-per-cent/
-
-Jamaica Observer. (2024, January 24). *EV imports soar to $9-b a year after Gov't incentive*. https://www.jamaicaobserver.com/2024/01/24/ev-imports-soar-9-b-year-govt-incentive/
-
-Jamaica Observer. (2024, June 3). *Gov't moves to prevent influx of substandard lithium-ion batteries*. https://www.jamaicaobserver.com/2024/06/03/govt-moves-prevent-influx-substandard-lithium-ion-batteries/
-
-Jamaica Public Service Company. (2023). *200 persons to be trained as EV technicians: Applications now open for JPS Foundation's Project eDrive electric vehicle training*. https://www.jpsco.com/
-
-Jamaica Urban Transit Company. (2022, December 14). *JUTC to test first electric bus on Jamaican roads* [Reported in Our Today]. https://our.today/jutc-to-test-first-electric-bus-on-jamaican-roads/
-
-Ministry of Energy, Telecommunications and Transport. (2023). *2022 Jamaica integrated resource plan*.
-
-National Environment and Planning Agency. (2025). *Jamaica to strengthen control of e-waste exports*. https://www.nepa.gov.jm/
-
-Planning Institute of Jamaica. (2023). *Economic and social survey Jamaica 2022* [Reported in Jamaica Gleaner, 13 August 2023]. https://jamaica-gleaner.com/article/news/20230813/jamaica-records-26-jump-motor-vehicle-imports-2022
-
-Turnbull, K. (2024). *Pioneering electric mobility: A framework for EV battery management in the Caribbean* [Final report]. Department of Physics, University of the West Indies, Mona.
-
-United Nations Environment Programme. (2025, April 7). *Caribbean leading the charge to electric mobility*. https://www.unep.org/technical-highlight/caribbean-leading-charge-electric-mobility

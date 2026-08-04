@@ -36,18 +36,30 @@ Modelling a BYD Yuan Plus operating 40 trips per day at J$200 per trip, six days
 
 | Charging | Rate (J$/kWh) | 5-year cumulative net |
 |---|---|---|
-| Home, JPS residential | 42.00 | **+J$779,352** |
-| JPS overnight | 50.11 | +J$366,910 |
-| Evergo, flat | 96.00 | −J$1,966,872 |
-| JPS evening peak | 130.63 | −J$3,728,015 |
+| Home, JPS residential | 42.00 | **+J$4,367,089** |
+| JPS overnight | 50.11 | +J$3,954,647 |
+| Evergo, flat | 96.00 | +J$1,620,865 |
+| JPS evening peak | 130.63 | −J$140,278 |
 
 **A J$4.5 million swing produced by a scheduling decision**, larger than the price difference between any two vehicles in the database.
 
-Only the two cheapest arrangements are profitable at all. A driver charging on the JPS evening peak pays 2.6 times what the same driver pays overnight on the same network, and 36% more than Evergo's flat rate.
+A driver charging on the JPS evening peak pays 2.6 times what the same driver pays overnight on the same network, and 36% more than Evergo's flat rate.
 
-The petrol baseline remains ahead: a used Toyota Probox returns J$2,065,890 over the same period. Notably, a **late-model Probox at J$2.3 million returns only J$1,320,960**, less than the older unit, because the additional J$650,000 of purchase price is not recovered by lower servicing within five years. Buying a fresher petrol taxi is not a better decision than keeping an older one.
+Petrol comparison: a used Toyota Probox returns J$3,018,547 over the same period. A **late-model Probox at J$2.3 million returns J$2,533,140**, less than the older unit, because the additional J$650,000 of purchase price is not recovered by lower servicing and slower depreciation within five years. Buying a fresher petrol taxi is not a better decision than keeping an older one.
 
-The conclusion for this audience is therefore specific: an electric taxi in Jamaica is viable only with depot or home charging and disciplined overnight scheduling, and even then does not yet beat a used Probox on a five-year horizon.
+### A correction that changed two conclusions
+
+The figures above are restated. An earlier version of the taxi model tracked cash flow only and therefore treated the vehicle as worthless on the last day of the ownership period. Adding the resale value, less any loan still outstanding, raises every electric figure by J$3,587,737 and the Probox figures by J$952,657 and J$1,212,180 respectively.
+
+Two conclusions reverse.
+
+**Evergo becomes viable.** At a flat J$96/kWh the operator was previously J$1,966,872 down over five years. Counting the asset they still own, they are J$1,620,865 up. The earlier claim that only the two cheapest arrangements are profitable was an artefact of the omission. Only the JPS evening peak now loses money, and it loses only J$140,278, which is close enough to breakeven that it should be read as "no better than not doing it" rather than as a clear loss.
+
+**The electric taxi overtakes the Probox.** On home charging the BYD Yuan Plus returns J$4,367,089 against the used Probox's J$3,018,547, a margin of J$1,348,542. The earlier finding that an electric taxi "does not yet beat a used Probox over five years" was wrong, and wrong in a specific direction: the omission penalised whichever vehicle cost more, and the electric vehicle costs 4.6 times the Probox.
+
+**What did not change is the headline.** The swing between best and worst charging arrangement is J$4,507,367 before the correction and J$4,507,367 after it, to the dollar. Resale value does not depend on when the operator charges, so it adds the same constant to all four rows. The study's clearest finding is unaffected by its most consequential error, which is worth stating plainly because it would be easy to present the correction as either more or less damaging than it was.
+
+The revised conclusion for this audience: an electric taxi in Jamaica is profitable over five years on any charging arrangement except the evening peak, beats the used Probox baseline when charged at home or overnight, and remains acutely sensitive to charging discipline. The case for depot or home charging rests on the size of the swing, not on the alternatives being unprofitable.
 
 **External validation.** Chile's *Mi Taxi Eléctrico* programme reports average savings above 3 million Chilean pesos per driver per year and 9.6 tonnes of CO₂ avoided per vehicle annually across 405 vehicles. The direction and rough magnitude are consistent with the modelled Jamaican results under favourable charging.
 

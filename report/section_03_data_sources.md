@@ -78,7 +78,21 @@ Three of the uncontacted bodies are, on the evidence of this study, more likely 
 
 ---
 
-## 3.6 Data Not Obtained
+## 3.6 Fuel Prices: Published but Not Machine-Readable
+
+Petrojam publishes its weekly ex-refinery reference prices as an HTML table at petrojam.com/price/, covering ten products across 59 pages of history. The figures are public, and the price series underpinning every fuel cost in this dashboard comes from them.
+
+They cannot be collected automatically. Requests from a plainly identified research client are refused with HTTP 403 by an AWS load balancer, on every path tried including /robots.txt itself. The refusal is not a crawling policy: the site's robots.txt reads `User-agent: * / Disallow:`, which permits automated access, and the price page carries `meta-robots: index, follow`. The block sits in front of the site rather than in it, and appears to reject clients that do not present as a browser.
+
+Getting past it would require the request to misrepresent itself as a browser. That was not done. A state-owned public body returning 403 to an identified client is declining, and the appropriate response to a decline is to ask rather than to change costume until the answer changes. A request has been drafted to Petrojam's public enquiries address, with the Access to Information Act as the fallback route, and it names the specific technical finding so the operator can act on it.
+
+Two consequences follow. The price series is maintained by manual entry, with a validated paste tool and the same range and duplicate checks the automated path would have applied. And the freshness of the series depends on a person, which is recorded in Section 8 as a maintenance risk rather than presented as solved.
+
+A separate observation is worth recording for anyone repeating this. A plain client and a browser were served *different* copies of the same page on the same day: the browser showed prices to 30 July 2026, while a plain request returned a cached copy ending 16 July. Any future automated collection needs a staleness check comparing the newest row served against the newest row already held, or it will silently collect nothing while appearing to succeed.
+
+---
+
+## 3.7 Data Not Obtained
 
 The following were sought and not found in any public source:
 
