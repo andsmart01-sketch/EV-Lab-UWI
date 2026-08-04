@@ -42,13 +42,23 @@ def get_latest_prices():
     }
 
 
+# Where the last exchange rate came from. Read this after calling
+# get_live_exchange_rate() so logs and the interface can say which of the three
+# paths was actually taken, rather than showing a bare number that looks
+# identical whether it is today's cached rate or a hardcoded fallback.
+LAST_RATE_SOURCE = "not loaded"
+
+
 def get_live_exchange_rate(fallback=156.0):
     """
-    Fetch the live USD/JMD exchange rate from open.er-api.com.
-    Returns the rate as a float. Falls back to the hardcoded value if the
-    API is unreachable (e.g. no internet on the demo machine).
-    Source: open.er-api.com (free, no API key required).
+    USD/JMD exchange rate, in order of preference:
+      1. data/live_config.json, written by scripts/update_weekly.py
+      2. a live call to open.er-api.com (free, no API key)
+      3. the hardcoded fallback
+
+    Sets LAST_RATE_SOURCE so the caller can report which path was used.
     """
+    global LAST_RATE_SOURCE
     import json
     from pathlib import Path
 
@@ -60,6 +70,8 @@ def get_live_exchange_rate(fallback=156.0):
                 config = json.load(f)
             rate = config.get("usd_to_jmd")
             if rate and isinstance(rate, (int, float)) and rate > 100:
+                stamp = config.get("rate_updated_utc", "date unknown")
+                LAST_RATE_SOURCE = f"live_config.json, updated {stamp}"
                 return float(rate)
         except Exception:
             pass
@@ -70,6 +82,9 @@ def get_live_exchange_rate(fallback=156.0):
         r = requests.get("https://open.er-api.com/v6/latest/USD", timeout=5)
         r.raise_for_status()
         rate = r.json()["rates"]["JMD"]
+        LAST_RATE_SOURCE = "live call to open.er-api.com"
         return float(rate)
     except Exception:
+        LAST_RATE_SOURCE = (f"HARDCODED FALLBACK {fallback}. No cache and no "
+                            f"network. Figures using USD are not current.")
         return fallback
