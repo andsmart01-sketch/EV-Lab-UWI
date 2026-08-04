@@ -383,44 +383,21 @@ def serve_layout():
                                  style={"fontSize": "14px", "color": "var(--text-muted)",
                                         "marginTop": "6px", "maxWidth": "260px"}),
 
-                        html.Details([
-                            html.Summary("Other price sources (field survey)", style={
-                                "fontSize": "14px", "cursor": "pointer",
-                                "color": "var(--text-muted)", "marginBottom": "6px",
-                            }),
-                            html.Label("Retail markup source", style={
-                                "fontSize": "15px", "fontWeight": "500",
-                                "display": "block", "marginBottom": "4px",
-                            }),
-                            dcc.Dropdown(
-                                id="markup-station-select",
-                                options=[{"label": s["label"], "value": i}
-                                         for i, s in enumerate(KINGSTON_STATION_MARKUPS)],
-                                # Custom is the default: the price you actually pay
-                                # beats any survey average. Falls back to the Kingston
-                                # average until a price is entered.
-                                value=CUSTOM_MARKUP_INDEX,
-                                clearable=False,
-                                style={"width": "260px", "fontSize": "15px",
-                                       "marginBottom": "8px"},
-                            ),
-                            html.P(
-                                "Retail = Petrojam reference + markup. The Petrojam price "
-                                "already includes Special Consumption Tax. Markups come from a "
-                                "Kingston field survey across three dates in June-July 2026 "
-                                "(J$29 for 87, J$34 for 90, J$48 for diesel on average). "
-                                "Station markups change over time, so your own pump price is "
-                                "the more reliable input. When you fill up, check for the "
-                                "orange verification sticker on the pump. It shows the "
-                                "National Compliance and Regulatory Authority has inspected "
-                                "the dispenser for accuracy, and gives the period the check "
-                                "remains valid.",
-                                style={"fontSize": "12px", "color": "var(--text-muted)",
-                                       "marginTop": "0", "maxWidth": "260px"},
-                            ),
-                        ], open=False, style={"marginTop": "10px"}),
                     ]),
-                ], style={"display": "flex", "flexWrap": "wrap", "padding": "0 20px 16px"}),
+                ], style={
+                    "display": "flex", "flexWrap": "wrap",
+                    # alignItems flex-start is the fix for the controls jumping
+                    # out of line when JPS Charge 'n Go is selected. The default
+                    # is stretch, so every control was being stretched to match
+                    # the tallest item in the row. The JPS notes are two or three
+                    # lines longer than Evergo's, so choosing JPS grew the row and
+                    # dragged the neighbouring inputs down with it. Aligning to the
+                    # top pins every control to the same baseline whatever the note
+                    # underneath it does.
+                    "alignItems": "flex-start",
+                    "gap": "0 32px", "rowGap": "12px",
+                    "padding": "0 20px 16px",
+                }),
             ], open=False, style={
                 "backgroundColor": "var(--card-bg)",
                 "border": "1px solid var(--card-border)",
@@ -572,6 +549,17 @@ CHARGING_NETWORKS = {
         "note": "Weekday evenings 18:00-22:00. The most expensive way to charge "
                 "in Jamaica, 36% above Evergo and 2.6x JPS overnight. "
                 "JPS rate card, July 2026.",
+    },
+    # Every list of options in the dashboard now ends with a custom entry, so
+    # the user is never stuck with the choices we happened to survey. Rate None
+    # means "read it from the input box beside this dropdown".
+    "custom": {
+        "label": "Custom rate - enter your own",
+        "rate": None,
+        "verified": False,
+        "note": "Enter the rate you actually pay in the box alongside. Use this "
+                "for a workplace charger, a network not listed here, or a "
+                "tariff that has changed since July 2026.",
     },
 }
 
@@ -1409,6 +1397,57 @@ GRID_SCENARIOS = {
     },
 }
 
+# Slider bounds for grid carbon intensity.
+#
+# The floor is not zero. A grid can approach zero carbon, but Jamaica's cannot
+# by 2030 on any published pathway, and letting the slider reach zero would
+# invite a reader to produce an EV emissions figure the country has no route
+# to. 0.10 sits below the 2030 target with room to spare. The ceiling is above
+# the 2022 measured value, so a reader who thinks the grid has got dirtier can
+# say so.
+GRID_INTENSITY_MIN = 0.10
+GRID_INTENSITY_MAX = 0.55
+
+# The published scenarios become marks on the slider. They stay one click away
+# while everything between them becomes reachable.
+GRID_SLIDER_MARKS = {
+    0.10: {"label": "0.10"},
+    0.275: {"label": "0.275\nIRP 2030", "style": {"whiteSpace": "pre-line",
+                                                  "fontSize": "11px"}},
+    0.380: {"label": "0.380\nIRP 2026", "style": {"whiteSpace": "pre-line",
+                                                  "fontSize": "11px"}},
+    0.474: {"label": "0.474\n2022 actual", "style": {"whiteSpace": "pre-line",
+                                                     "fontSize": "11px"}},
+    0.55: {"label": "0.55"},
+}
+
+
+def describe_grid_intensity(value):
+    """
+    Plain-language note for a slider position, naming the nearest scenario.
+
+    Without this the slider is a bare number. The point of the marks is that
+    0.380 means something specific, and a reader who drags to 0.42 should be
+    told they are now between the 2022 measurement and the 2026 target rather
+    than left to work it out.
+    """
+    if value is None:
+        return ""
+    nearest_key = min(
+        GRID_SCENARIOS,
+        key=lambda k: abs(GRID_SCENARIOS[k]["intensity_kg_per_kwh"] - value),
+    )
+    nearest = GRID_SCENARIOS[nearest_key]
+    delta = abs(nearest["intensity_kg_per_kwh"] - value)
+    if delta < 0.003:
+        return (f"{nearest['label']}. Renewables {nearest['re_pct']}%. "
+                f"Source: Jamaica Integrated Resource Plan.")
+    direction = "cleaner than" if value < nearest["intensity_kg_per_kwh"] else "dirtier than"
+    return (f"Custom value. This is {delta:.3f} kg/kWh {direction} the nearest "
+            f"published scenario, {nearest['label']}. Custom values are your "
+            f"own assumption and are not from the Integrated Resource Plan.")
+
+
 CO2_PER_LITRE_PETROL = 2.31   # kg CO2/litre, 90 octane combustion
 CO2_PER_LITRE_DIESEL = 2.68   # kg CO2/litre, automotive diesel
 
@@ -1897,63 +1936,52 @@ def module1_layout():
 
 # ── Callbacks ─────────────────────────────────────────────────────
 @app.callback(
-    Output("markup-custom-input-wrapper", "style"),
-    Input("markup-station-select", "value"),
-)
-def toggle_custom_markup_input(station_idx):
-    if station_idx is None:
-        return {"display": "none"}
-    if KINGSTON_STATION_MARKUPS[station_idx]["markup"] == "custom":
-        return {"display": "block"}
-    return {"display": "none"}
-
-
-@app.callback(
     Output("effective-fuel-price-store", "data"),
     Output("effective-fuel-price-display", "children"),
     Input("fuel-grade-select", "value"),
-    Input("markup-station-select", "value"),
     Input("markup-custom-input", "value"),
 )
-def compute_effective_fuel_price(grade, station_idx, custom_markup):
+def compute_effective_fuel_price(grade, custom_price):
+    """
+    The pump price every module uses.
+
+    The eleven named Kingston stations have been removed on Dr Harris's review.
+    A station markup measured across three dates in June and July 2026 goes
+    stale, while a price read off the pump does not, so offering a list of
+    stations invited the user to pick a worse input than the one they already
+    have. What remains is the price you pay, with the surveyed Kingston average
+    as the fallback until you enter one.
+
+    KINGSTON_STATION_MARKUPS and KINGSTON_RETAIL_MARKUP_AVG are both retained
+    in the data layer: the average is still the fallback, and the per-station
+    survey is real fieldwork that belongs in the report even though it is no
+    longer a control.
+    """
     if grade is None:
         return None, ""
     ref_price = latest_prices.get(grade)
     if ref_price is None:
         return None, ""
 
-    if station_idx is None:
-        markup = KINGSTON_RETAIL_MARKUP_AVG.get(grade, 34)
-        markup_source = "Kingston average"
-    else:
-        station = KINGSTON_STATION_MARKUPS[station_idx]
-        if station["markup"] is None:
-            markup = KINGSTON_RETAIL_MARKUP_AVG.get(grade, 34)
-            markup_source = "Kingston average"
-        elif station["markup"] == "custom":
-            if custom_markup is not None and custom_markup > 0:
-                implied_markup = custom_markup - ref_price
-                markup = implied_markup
-                effective = round(custom_markup, 2)
-                display = (
-                    f"Full retail price J${effective:.2f}/L "
-                    f"(implies markup of J${implied_markup:.2f}/L above Petrojam reference)"
-                )
-                return effective, display
-            # Custom is the default selection, so this branch runs on first load
-            # before the user has typed anything. It previously set markup = 0,
-            # which handed every module the bare Petrojam wholesale price as if
-            # it were a pump price and understated fuel cost by roughly J$34/L.
-            # Fall back to the surveyed Kingston average instead, and say so.
-            markup = KINGSTON_RETAIL_MARKUP_AVG.get(grade, 34)
-            markup_source = "Kingston average, enter your own pump price above"
-        else:
-            markup = station["markup"]
-            markup_source = station["label"]
+    if custom_price is not None and custom_price > 0:
+        implied_markup = custom_price - ref_price
+        effective = round(custom_price, 2)
+        return effective, (
+            f"Your pump price J${effective:.2f}/L. That implies a markup of "
+            f"J${implied_markup:.2f}/L above the Petrojam reference of "
+            f"J${ref_price:.2f}."
+        )
 
+    # Nothing entered yet. Fall back to the surveyed average rather than to
+    # zero markup, which would hand every module the bare Petrojam wholesale
+    # price as if it were a pump price and understate fuel by roughly J$34/L.
+    markup = KINGSTON_RETAIL_MARKUP_AVG.get(grade, 34)
     effective = round(ref_price + markup, 2)
-    display = f"Petrojam J${ref_price:.2f} + markup J${markup:.2f} = J${effective:.2f}/L ({markup_source})"
-    return effective, display
+    return effective, (
+        f"Petrojam J${ref_price:.2f} + surveyed Kingston markup J${markup:.2f} "
+        f"= J${effective:.2f}/L. Enter your own pump price above for a figure "
+        f"specific to where you buy."
+    )
 
 
 @app.callback(
@@ -2054,6 +2082,14 @@ def m5_update_ev(model_key):
 
 
 @app.callback(
+    Output("m5-grid-note", "children"),
+    Input("m5-grid-intensity", "value"),
+)
+def describe_m5_grid(value):
+    return describe_grid_intensity(value)
+
+
+@app.callback(
     Output("m5-cards",   "children"),
     Output("m5-co2-fig", "figure"),
     Input("m5-ice-dropdown", "value"),
@@ -2062,10 +2098,10 @@ def m5_update_ev(model_key):
     Input("m5-ev-consumption", "value"),
     Input("m5-daily-km", "value"),
     Input("m5-years", "value"),
-    Input("m5-grid-scenario", "value"),
+    Input("m5-grid-intensity", "value"),
 )
 def calculate_module5(ice_key, ice_consumption, ev_key, ev_consumption,
-                      daily_km, years, grid_scenario):
+                      daily_km, years, grid_intensity):
     empty_fig = go.Figure()
     empty_fig.update_layout(
         plot_bgcolor="#ffffff", paper_bgcolor="#ffffff",
@@ -2074,14 +2110,17 @@ def calculate_module5(ice_key, ice_consumption, ev_key, ev_consumption,
                       "xref": "paper", "yref": "paper", "x": 0.5, "y": 0.5,
                       "showarrow": False, "font": {"size": 16, "color": "#aaa"}}],
     )
-    if not all([ice_consumption, ev_consumption, daily_km, years, grid_scenario]):
+    if not all([ice_consumption, ev_consumption, daily_km, years]) \
+            or grid_intensity is None:
         return (html.P("Enter all inputs to see results.",
                        style={"color": "#888", "fontSize": "16px"}),
                 empty_fig)
 
     years = int(years)
-    grid = GRID_SCENARIOS[grid_scenario]
-    intensity = grid["intensity_kg_per_kwh"]
+    # The slider hands us the intensity directly, so there is no scenario key
+    # to look up. Any value on the scale is valid, including ones between the
+    # published scenarios.
+    intensity = float(grid_intensity)
     annual_km = daily_km * 365.0
 
     annual_co2_ice = (ice_consumption / 100) * annual_km * CO2_PER_LITRE_PETROL
@@ -2542,10 +2581,25 @@ def module5_layout():
             html.Label("Ownership period (years)", style=lbl),
             dcc.Input(id="m5-years", type="number", debounce=True,
                       value=5, min=1, max=20, step=1, style=inp),
-            html.Label("Grid scenario", style=lbl),
-            dcc.Dropdown(id="m5-grid-scenario", options=grid_opts,
-                         value=d_grid, clearable=False,
-                         style={"fontSize": "16px", "marginBottom": "4px"}),
+            # Grid intensity as a slider rather than a dropdown, per Dr Harris.
+            # The three published scenarios are marks on the scale, so they are
+            # still one click away, but the value between and beyond them is
+            # now reachable. That matters because the IRP figures are targets,
+            # not measurements, and a reader who thinks 2030 will be missed
+            # should be able to say so and see the consequence.
+            html.Label("Grid carbon intensity (kg CO2 per kWh)", style=lbl),
+            dcc.Slider(
+                id="m5-grid-intensity",
+                min=GRID_INTENSITY_MIN, max=GRID_INTENSITY_MAX, step=0.005,
+                value=GRID_SCENARIOS[d_grid]["intensity_kg_per_kwh"],
+                marks=GRID_SLIDER_MARKS,
+                tooltip={"placement": "bottom", "always_visible": True},
+                included=False,
+            ),
+            html.Div(id="m5-grid-note", style={
+                "fontSize": "13px", "color": "#5B7A70",
+                "marginTop": "26px", "marginBottom": "6px", "lineHeight": "1.5",
+            }),
         ], style=det_style),
 
         html.Div(id="m5-cards"),
@@ -4223,6 +4277,7 @@ CHARGING_NETWORK_SHORT_NAME = {
     "jps_offpeak": "JPS Charge 'n Go, overnight",
     "jps_day":     "JPS Charge 'n Go, daytime",
     "jps_peak":    "JPS Charge 'n Go, evening peak",
+    "custom":      "Your",
 }
 
 
@@ -4248,6 +4303,14 @@ def apply_charging_network(network_key):
     label = f"{short} rate (J$/kWh)"
     if net is None:
         return dash.no_update, label, "", base
+
+    if network_key == "custom":
+        # Custom is not a missing rate, it is a deliberate one. Leave whatever
+        # the user last had in the box and prompt in neutral colour, rather
+        # than the red "rate not on file" warning used for genuine gaps.
+        return (dash.no_update, "Your rate (J$/kWh)", net["note"],
+                {**base, "color": "#5B7A70"})
+
     if net["rate"] is None:
         return (dash.no_update, label,
                 "Rate not on file. " + net["note"],
