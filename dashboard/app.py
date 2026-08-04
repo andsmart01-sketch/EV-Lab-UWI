@@ -1397,14 +1397,33 @@ GRID_SCENARIOS = {
     },
 }
 
-# Slider bounds for grid carbon intensity.
+# Slider bounds for grid carbon intensity. Neither end is arbitrary.
 #
-# The floor is not zero. A grid can approach zero carbon, but Jamaica's cannot
-# by 2030 on any published pathway, and letting the slider reach zero would
-# invite a reader to produce an EV emissions figure the country has no route
-# to. 0.10 sits below the 2030 target with room to spare. The ceiling is above
-# the 2022 measured value, so a reader who thinks the grid has got dirtier can
-# say so.
+# CEILING 0.55. This is approximately Jamaica's grid with NO renewables at all,
+# at the thermal efficiency the IRP scenarios imply. Back out the fossil-only
+# intensity from each published scenario, dividing grid intensity by the
+# non-renewable share:
+#
+#     2022 actual  0.474 / (1 - 0.115) = 0.536 kg/kWh
+#     IRP 2026     0.380 / (1 - 0.267) = 0.518 kg/kWh
+#     IRP 2030     0.275 / (1 - 0.498) = 0.548 kg/kWh
+#
+# All three agree at roughly 0.52 to 0.55, which is the physical ceiling: you
+# cannot do worse than burning only fossil fuel in the plant you already have.
+#
+# That figure is also a useful check on the IRP numbers themselves. 0.54 sits
+# well below pure heavy fuel oil at about 0.75 kg/kWh, which is what you would
+# expect given Bogue and Old Harbour run on LNG. The scenarios are internally
+# coherent.
+#
+# Going higher would mean modelling a shift back toward HFO. Jamaica is not
+# heading there, and a slider that reaches it invites a comparison nobody
+# needs.
+#
+# FLOOR 0.10, not zero. A grid can approach zero carbon, but Jamaica's cannot
+# by 2030 on any published pathway, and a slider reaching zero would invite an
+# EV emissions figure the country has no route to. 0.10 sits below the 2030
+# target with room to spare.
 GRID_INTENSITY_MIN = 0.10
 GRID_INTENSITY_MAX = 0.55
 
