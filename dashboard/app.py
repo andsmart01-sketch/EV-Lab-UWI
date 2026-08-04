@@ -9,7 +9,10 @@ from vehicles import (ICE_VEHICLES, BEV_VEHICLES,
                       get_ice_dropdown_options, get_bev_dropdown_options,
                       bev_manufacturing_premium_tonnes,
                       bev_manufacturing_premium_note,
-                      BATTERY_PRODUCTION_CO2_KG_PER_KWH)
+                      BATTERY_PRODUCTION_CO2_KG_PER_KWH,
+                      vehicle_label, price_is_estimated,
+                      estimated_vehicle_keys,
+                      ESTIMATE_FOOTNOTE, CONSUMPTION_FOOTNOTE)
 from module7_policy import build_module7_layout
 
 app = dash.Dash(
@@ -1721,6 +1724,39 @@ def module8_layout():
     ], style={"padding": "4px"})
 
 
+def estimate_footnote_block(include_consumption=True):
+    """
+    Explains the asterisk that marks estimated figures.
+
+    Dr Harris asked for asterisks wherever the data contains estimates, with
+    the estimate explained. An unexplained asterisk is worse than none, so this
+    block is placed in every module that offers a vehicle selector, and it
+    names the vehicles affected rather than gesturing at the idea.
+
+    Consumption is caveated separately because it applies to EVERY vehicle, not
+    just the marked ones: no figure in this dataset is a manufacturer test
+    result. Marking all 21 with an asterisk would make the mark meaningless, so
+    it is stated once here instead.
+    """
+    marked = estimated_vehicle_keys()
+    names = ", ".join(ALL_LABELS.get(k, k) for k in marked)
+    note = {"fontSize": "13px", "color": "#5B7A70", "lineHeight": "1.5",
+            "margin": "6px 0 0 0"}
+    kids = [html.P([html.B("* "), ESTIMATE_FOOTNOTE[2:]], style=note)]
+    if marked:
+        kids.append(html.P(f"Currently marked: {names}.",
+                           style={**note, "fontStyle": "italic"}))
+    if include_consumption:
+        kids.append(html.P(CONSUMPTION_FOOTNOTE, style=note))
+    return html.Div(kids, style={
+        "borderLeft": "3px solid #E0E8E5", "paddingLeft": "10px",
+        "marginTop": "10px", "marginBottom": "6px"})
+
+
+# Plain labels without the asterisk, for use inside sentences.
+ALL_LABELS = {k: v["label"] for k, v in {**ICE_VEHICLES, **BEV_VEHICLES}.items()}
+
+
 def module1_layout():
     lbl = {"fontSize": "15px", "fontWeight": "600", "color": "#555",
            "marginBottom": "4px", "display": "block"}
@@ -1774,6 +1810,8 @@ def module1_layout():
                          f"Range: {BEV_VEHICLES[d_ev]['range_km_nedc']} km (NEDC). "
                          "Price not publicly listed — enter a confirmed dealer quote.",
                          style=hint)),
+
+            estimate_footnote_block(),
             html.Label("Energy consumption (kWh/100km)", style=lbl),
             dcc.Input(id="m1-ev-consumption", type="number", debounce=True,
                       value=BEV_VEHICLES[d_ev]["consumption_per_100km"], step=0.1, style=inp),
@@ -2460,8 +2498,8 @@ def module5_layout():
     det_style = {"backgroundColor": "#fff", "border": "1px solid #e0e0e0",
                  "borderRadius": "6px", "padding": "14px 16px", "marginBottom": "10px"}
 
-    ice_opts  = [{"label": v["label"], "value": k} for k, v in ICE_VEHICLES.items()]
-    ev_opts   = [{"label": v["label"], "value": k} for k, v in BEV_VEHICLES.items()]
+    ice_opts  = [{"label": vehicle_label(k, v), "value": k} for k, v in ICE_VEHICLES.items()]
+    ev_opts   = [{"label": vehicle_label(k, v), "value": k} for k, v in BEV_VEHICLES.items()]
     grid_opts = [{"label": v["label"], "value": k} for k, v in GRID_SCENARIOS.items()]
 
     d_ice  = "toyota-yaris-new"

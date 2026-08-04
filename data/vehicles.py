@@ -640,14 +640,68 @@ def bev_manufacturing_premium_note(vehicle_key, amortise_used=True):
 ALL_VEHICLES = {**ICE_VEHICLES, **BEV_VEHICLES}
 
 
+import re as _re
+
+# Language that means a figure was inferred rather than observed at source.
+_ESTIMATE_PATTERN = _re.compile(r"estimat|assum|unverified|approx|proxy", _re.I)
+
+# Marker appended to any label whose price is an estimate. Dr Harris asked for
+# asterisks wherever there are estimates in the data, with an explanation.
+ESTIMATE_MARK = " *"
+
+ESTIMATE_FOOTNOTE = (
+    "* Price is an estimate rather than an advertised figure. Where a dealer "
+    "publishes a price, that price is used. Where none is published, the value "
+    "is the midpoint of observed asking prices or a dealer's own estimate, and "
+    "the vehicle is marked. Asking prices are not transaction prices, so the "
+    "real figure is usually somewhat lower."
+)
+
+# Consumption is separately caveated. Every figure in this dataset is a
+# real-world estimate for Jamaican conditions rather than a manufacturer test
+# result, because manufacturer figures are measured on standard cycles that do
+# not reflect Jamaican heat, hills or traffic.
+CONSUMPTION_FOOTNOTE = (
+    "Consumption figures are real-world estimates for Jamaican driving "
+    "conditions, not manufacturer test-cycle values. Test-cycle figures are "
+    "measured under conditions that do not reflect Jamaican heat, hills or "
+    "traffic, and typically understate real consumption."
+)
+
+
+def price_is_estimated(vehicle_or_key):
+    """True if this vehicle's price came from an estimate rather than a listing."""
+    v = vehicle_or_key
+    if isinstance(v, str):
+        v = ALL_VEHICLES.get(v)
+    if not v:
+        return False
+    return bool(_ESTIMATE_PATTERN.search(v.get("price_source", "") or ""))
+
+
+def vehicle_label(key, vehicle=None):
+    """Display label, with an asterisk when the price is an estimate."""
+    v = vehicle if vehicle is not None else ALL_VEHICLES.get(key)
+    if not v:
+        return key
+    return v["label"] + (ESTIMATE_MARK if price_is_estimated(v) else "")
+
+
+def estimated_vehicle_keys():
+    """Every vehicle whose price is an estimate. Used to build the footnote."""
+    return [k for k, v in ALL_VEHICLES.items() if price_is_estimated(v)]
+
+
 def get_ice_dropdown_options():
     """Return list of dcc.Dropdown options for ICE vehicles."""
-    return [{"label": v["label"], "value": k} for k, v in ICE_VEHICLES.items()]
+    return [{"label": vehicle_label(k, v), "value": k}
+            for k, v in ICE_VEHICLES.items()]
 
 
 def get_bev_dropdown_options():
     """Return list of dcc.Dropdown options for BEV vehicles."""
-    return [{"label": v["label"], "value": k} for k, v in BEV_VEHICLES.items()]
+    return [{"label": vehicle_label(k, v), "value": k}
+            for k, v in BEV_VEHICLES.items()]
 
 
 def get_vehicle(key):

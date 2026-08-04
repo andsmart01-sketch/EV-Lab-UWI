@@ -37,6 +37,34 @@ body {
   line-height: 1.5;
 }
 
+/* Justified prose, per Dr Harris's review.
+   Scoped to <p> and <li> on purpose. Those are the elements that actually
+   carry prose; headings, table cells, buttons and numeric labels are not
+   included and keep their own alignment.
+
+   This is safer than it first appears. CSS justification only affects lines
+   that WRAP: the last line of any paragraph stays left aligned, so a caption
+   or label short enough to fit on one line renders exactly as before. Only
+   genuinely multi-line text changes.
+
+   hyphens:auto matters here. Justifying without it stretches word spacing on
+   lines containing long words, which produces the rivers of white space that
+   make justified text harder to read than ragged right. With hyphenation the
+   spacing stays even.
+
+   Inline styles still win, so anything explicitly centred stays centred. */
+p, li {
+  text-align: justify;
+  hyphens: auto;
+  -webkit-hyphens: auto;
+}
+
+/* Opt-out for anywhere justification is wrong. */
+.no-justify, .no-justify p, .no-justify li {
+  text-align: left;
+  hyphens: none;
+}
+
 .sidebar-nav-link {
   display: flex;
   align-items: center;

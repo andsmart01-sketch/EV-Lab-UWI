@@ -487,6 +487,170 @@ _ACTION_COL_WIDTHS = {
 }
 
 
+# -----------------------------------------------------------------------
+# DATA: identified policy gaps
+#
+# These were previously four bulleted lists. Dr Harris asked for a table.
+# Holding them as data rather than as prose in the layout means the count is
+# derived, the categories cannot drift apart, and the same content can be
+# reused in the report without being retyped.
+#
+# "gap" is the finding in one line. "detail" is the evidence and why it
+# matters. Splitting them is what makes a table more readable than the bullets
+# were: the reader can scan the left column and stop only where they need the
+# argument.
+# -----------------------------------------------------------------------
+
+POLICY_GAPS = [
+    # --- Measurement ---
+    {"category": "Measurement",
+     "gap": "No published count of electric vehicles in Jamaica",
+     "detail": "Import figures exist, but the national statistics count hybrids "
+               "together with fully electric cars. They cannot be used to measure a "
+               "target that excludes hybrids."},
+    {"category": "Measurement",
+     "gap": "Fleet totals are not broken down by category",
+     "detail": "575,041 vehicles were certified fit in 2022 and 34,928 of those were "
+               "public passenger vehicles, but private, commercial and government "
+               "vehicles are not separated. The 12% private target cannot be measured "
+               "even if the EV count existed."},
+    {"category": "Measurement",
+     "gap": "The government fleet is the least reported of all",
+     "detail": "Neither the number of vehicles nor the number that are electric is "
+               "public, against a target of 100%."},
+    {"category": "Measurement",
+     "gap": "JUTC has not published energy data from its electric bus pilot",
+     "detail": "Measuring consumption was a stated aim of the trial."},
+
+    # --- Standards and rules not yet issued ---
+    {"category": "Standards not issued",
+     "gap": "No quality standard for lithium-ion batteries",
+     "detail": "In June 2024, the month this was due, the ministry had only just asked "
+               "another ministry to begin developing one."},
+    {"category": "Standards not issued",
+     "gap": "No battery health threshold for used EV imports",
+     "detail": "A three-year age limit exists for the reduced duty, but nothing governs "
+               "the condition of the battery itself, which is what actually determines "
+               "whether a used EV is worth importing."},
+    {"category": "Standards not issued",
+     "gap": "No safety or technical standard for public charging equipment",
+     "detail": "This falls to the Bureau of Standards Jamaica and has not been issued."},
+    {"category": "Standards not issued",
+     "gap": "No standard requiring charging networks to work together",
+     "detail": "Not yet overdue. The deadline is 2028."},
+    {"category": "Standards not issued",
+     "gap": "No Low Emission Zone has been designated",
+     "detail": "This deadline passed in June 2024."},
+    {"category": "Standards not issued",
+     "gap": "No publicly available plan for implementing the policy itself",
+     "detail": "Due September 2023."},
+
+    # --- Delivered by others, not by the state ---
+    {"category": "Delivered by others",
+     "gap": "Charging is being built commercially, not to a national plan",
+     "detail": "JPS and Evergo are building the network. There is no published national "
+               "deployment plan, and no single place a driver can look up every charger, "
+               "because each operator runs its own app."},
+    {"category": "Delivered by others",
+     "gap": "Training was delivered by a foundation and a development bank",
+     "detail": "Technician and first-responder training came from the JPS Foundation and "
+               "the Inter-American Development Bank through HEART/NSTA, not from the "
+               "ministries named in the policy."},
+    {"category": "Delivered by others",
+     "gap": "Battery recycling is handled privately, with no producer responsibility",
+     "detail": "A private company exports spent batteries abroad. There is no scheme "
+               "making manufacturers or importers cover end-of-life costs. A 2024 UWI "
+               "Mona study found the National Solid Waste Management Act 2001 does not "
+               "classify electric vehicle batteries as hazardous waste, and that the "
+               "Transport Authority Act, Road Traffic Act and Public Health Act each "
+               "address only a small part of the problem."},
+    {"category": "Delivered by others",
+     "gap": "No facility is set up specifically for EV batteries",
+     "detail": "Two facilities are authorised to handle electronic waste, but neither is "
+               "equipped for vehicle batteries. The one control that does now cover them "
+               "came from an international treaty obligation, not from this policy."},
+
+    # --- Design limits ---
+    {"category": "Design limits",
+     "gap": "The reduced import duty was capped at 1,000 vehicles",
+     "detail": "A cap of that size cannot deliver a 12% share of a fleet of several "
+               "hundred thousand. The main incentive is limited by design."},
+    {"category": "Design limits",
+     "gap": "Importers have bought vehicles that did not qualify for the reduced duty",
+     "detail": "They discovered this only on arrival. That is what happens when the "
+               "import guidelines the policy promised have not been published."},
+    {"category": "Design limits",
+     "gap": "JPS is not required to publish the carbon intensity of supply",
+     "detail": "Without it, no claim about how clean an electric vehicle is in Jamaica "
+               "can be independently checked, and the same vehicle can look clean or "
+               "dirty depending on which assumption is used."},
+]
+
+GAP_CATEGORY_COLOURS = {
+    "Measurement":         "#2E75B6",
+    "Standards not issued": "#D32F2F",
+    "Delivered by others": "#F57C00",
+    "Design limits":       "#7B3FA0",
+}
+
+
+def build_policy_gaps_table():
+    """
+    The identified policy gaps as a table, replacing four bulleted lists.
+
+    Category is shown once per group rather than repeated on every row, which
+    is what makes a table of this shape readable. The count in each category
+    header is derived from the data so it cannot fall out of step.
+    """
+    widths = {"Category": "16%", "Gap": "32%", "Why it matters": "52%"}
+
+    header = html.Thead(html.Tr([
+        html.Th(name, style={
+            "width": w, "textAlign": "left", "padding": "10px 12px",
+            "backgroundColor": "#1A9E75", "color": "#ffffff",
+            "fontWeight": "600", "fontSize": "15px",
+            "border": "1px solid #148A65",
+            "position": "sticky", "top": "0", "zIndex": "2",
+        }) for name, w in widths.items()
+    ]))
+
+    rows = []
+    for category in GAP_CATEGORY_COLOURS:
+        items = [g for g in POLICY_GAPS if g["category"] == category]
+        if not items:
+            continue
+        colour = GAP_CATEGORY_COLOURS[category]
+        for i, g in enumerate(items):
+            stripe = "#ffffff" if len(rows) % 2 == 0 else "#F7FAF9"
+            base = {"padding": "9px 12px", "fontSize": "15px",
+                    "color": "#2c3e50", "backgroundColor": stripe,
+                    "border": "1px solid #E0E8E5", "verticalAlign": "top"}
+            prose = {**base, "textAlign": "justify", "lineHeight": "1.5"}
+            cells = []
+            if i == 0:
+                # One category cell spanning its whole group.
+                cells.append(html.Td(
+                    [html.Div(category, style={"fontWeight": "700"}),
+                     html.Div(f"{len(items)} gap{'s' if len(items) != 1 else ''}",
+                              style={"fontSize": "13px", "opacity": "0.8",
+                                     "marginTop": "2px"})],
+                    rowSpan=len(items),
+                    style={**base, "backgroundColor": colour, "color": "#ffffff",
+                           "verticalAlign": "top"},
+                ))
+            cells.append(html.Td(g["gap"], style={**prose, "fontWeight": "600"}))
+            cells.append(html.Td(g["detail"], style=prose))
+            rows.append(html.Tr(cells))
+
+    return html.Div(
+        html.Table([header, html.Tbody(rows)],
+                   style={"width": "100%", "borderCollapse": "collapse",
+                          "tableLayout": "fixed"}),
+        style={"overflowX": "auto", "border": "1px solid #E0E8E5",
+               "borderRadius": "8px"},
+    )
+
+
 def build_actions_html_table():
     """
     The policy action tracker as a real HTML table.
@@ -739,85 +903,8 @@ def build_module7_layout():
                "treaty, rather than from the ministry the policy names.",
                style={"fontSize": "16px", "color": "#444", "marginBottom": "12px"}),
 
-        html.P("Measurement", style={"fontWeight": "700", "fontSize": "16px",
-                                     "margin": "0 0 4px"}),
-        html.Ul([
-            html.Li("Nobody publishes how many electric vehicles Jamaica has. Import "
-                    "figures exist but the national statistics count hybrids together "
-                    "with fully electric cars, so they cannot be used to measure a "
-                    "target that excludes hybrids."),
-            html.Li("Fleet totals are not broken down by category. 575,041 vehicles "
-                    "were certified fit in 2022 and 34,928 of those were public "
-                    "passenger vehicles, but private, commercial and government "
-                    "vehicles are not separated, so the 12% private target cannot be "
-                    "measured even if the EV count existed."),
-            html.Li("The government fleet is the least reported of all. Neither the "
-                    "number of vehicles nor the number that are electric is public, "
-                    "against a 100% target."),
-            html.Li("JUTC has not published energy consumption data from its electric "
-                    "bus pilot, although measuring it was a stated aim of the trial."),
-        ], style={"lineHeight": "1.9", "fontSize": "16px", "marginTop": "0"}),
+        build_policy_gaps_table(),
 
-        html.P("Standards and rules not yet issued",
-               style={"fontWeight": "700", "fontSize": "16px", "margin": "10px 0 4px"}),
-        html.Ul([
-            html.Li("No quality standard for lithium-ion batteries. In June 2024, the "
-                    "month this was due, the ministry had only just asked another "
-                    "ministry to begin developing one."),
-            html.Li("No battery health threshold for used electric vehicle imports. An "
-                    "age limit of three years exists for the reduced duty, but nothing "
-                    "governs the condition of the battery itself, which is what "
-                    "actually determines whether a used EV is worth importing."),
-            html.Li("No safety or technical standard for public charging equipment from "
-                    "the Bureau of Standards Jamaica."),
-            html.Li("No standard requiring different charging networks to work together, "
-                    "though this is not due until 2028."),
-            html.Li("No Low Emission Zone has been designated. This deadline passed in "
-                    "June 2024."),
-            html.Li("No publicly available plan for implementing the policy itself, "
-                    "which was due in September 2023."),
-        ], style={"lineHeight": "1.9", "fontSize": "16px", "marginTop": "0"}),
-
-        html.P("Delivered by others, not by the state",
-               style={"fontWeight": "700", "fontSize": "16px", "margin": "10px 0 4px"}),
-        html.Ul([
-            html.Li("Charging is being built commercially by JPS and Evergo. There is "
-                    "no published national deployment plan, and no single place a "
-                    "driver can look up every charger, because each operator runs its "
-                    "own app."),
-            html.Li("Technician and first-responder training was delivered by the JPS "
-                    "Foundation and the Inter-American Development Bank through "
-                    "HEART/NSTA, not by the ministries named in the policy."),
-            html.Li("Battery recycling is being handled by a private company exporting "
-                    "spent batteries abroad. There is still no producer responsibility "
-                    "scheme making manufacturers or importers cover end-of-life costs. "
-                    "A 2024 UWI Mona study of the legislation found the National Solid "
-                    "Waste Management Act 2001 does not classify electric vehicle "
-                    "batteries as hazardous waste, and that the Transport Authority "
-                    "Act, Road Traffic Act and Public Health Act each address only a "
-                    "small part of the problem."),
-            html.Li("Two facilities are authorised to handle electronic waste, but "
-                    "neither is set up specifically for electric vehicle batteries. "
-                    "The one control that does now cover vehicle batteries came from "
-                    "an international treaty obligation, not from this policy."),
-        ], style={"lineHeight": "1.9", "fontSize": "16px", "marginTop": "0"}),
-
-        html.P("Design limits worth noting",
-               style={"fontWeight": "700", "fontSize": "16px", "margin": "10px 0 4px"}),
-        html.Ul([
-            html.Li("The reduced import duty was capped at 1,000 vehicles. A cap of "
-                    "that size cannot deliver a 12% share of a fleet of several "
-                    "hundred thousand, so the main incentive is limited by design."),
-            html.Li("Importers have reported buying vehicles that turned out not to "
-                    "qualify for the reduced duty, discovering this only on arrival. "
-                    "That is what happens when the import guidelines the policy "
-                    "promised have not been published."),
-            html.Li("There is no requirement on JPS to publish the carbon intensity of "
-                    "the electricity supply. Without it, no claim about how clean an "
-                    "electric vehicle is in Jamaica can be independently checked, and "
-                    "the same vehicle can look clean or dirty depending on which "
-                    "assumption is used."),
-        ], style={"lineHeight": "1.9", "fontSize": "16px", "marginTop": "0"}),
         html.P(
             "Full analysis: docs/ev_policy_gap_analysis.md",
             style={"fontSize": "14px", "color": "#888"}
