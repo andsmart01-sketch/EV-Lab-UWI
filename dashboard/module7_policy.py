@@ -389,13 +389,13 @@ def build_progress_bars():
 
     fig.update_layout(
         title={"text": "Jamaica 2030 EV Fleet Penetration Targets vs Current Progress",
-               "font": {"size": 15}, "x": 0, "xanchor": "left"},
+               "font": {"size": 18}, "x": 0, "xanchor": "left"},
         barmode="overlay",
         xaxis=dict(title="Percentage of Fleet", range=[0, 115], ticksuffix="%"),
         yaxis=dict(title=""),
         legend=dict(orientation="h", yanchor="top",
                     y=-(_axis_px / _plot_h),
-                    xanchor="center", x=0.5, font=dict(size=10)),
+                    xanchor="center", x=0.5, font=dict(size=12)),
         height=_height,
         margin=dict(l=200, r=80, t=_top, b=_bottom),
         annotations=[dict(
@@ -403,7 +403,7 @@ def build_progress_bars():
             xref="paper", yref="paper",
             x=0, y=-((_axis_px + _legend_px + 10) / _plot_h),
             xanchor="left", yanchor="top", showarrow=False,
-            font=dict(size=11, color="#888888"), align="left"
+            font=dict(size=14, color="#888888"), align="left"
         )]
     )
     return fig
@@ -418,8 +418,13 @@ def build_actions_table():
         for a in ACTIONS
     ]
 
+    # Retained for reference and for anyone exporting the table as an image.
+    # The LIVE table is build_actions_html_table() below. go.Table applies a
+    # single fixed row height to every row, and the notes here run from 0 to
+    # 581 characters, so any height that fits the longest note leaves the other
+    # 25 rows mostly empty. An HTML table sizes each row to its own content.
     fig = go.Figure(data=[go.Table(
-        columnwidth=[25, 200, 90, 130, 110, 170],
+        columnwidth=[25, 150, 80, 110, 110, 420],
         header=dict(
             values=["<b>Goal</b>", "<b>Action</b>", "<b>Deadline</b>",
                     "<b>Agencies</b>", "<b>Status</b>", "<b>Notes</b>"],
@@ -462,11 +467,105 @@ def build_actions_table():
     )])
     fig.update_layout(
         title={"text": f"Policy Implementation Action Tracker ({len(ACTIONS)} Actions)",
-               "font": {"size": 14}},
+               "font": {"size": 17}},
         height=800,
         margin=dict(l=10, r=10, t=50, b=10)
     )
     return fig
+
+
+# Column widths as percentages. Notes gets roughly half the table because it
+# carries nearly all the text: the notes field runs to 581 characters while
+# Goal, Deadline and Status are only ever a few words.
+_ACTION_COL_WIDTHS = {
+    "Goal": "4%",
+    "Action": "20%",
+    "Deadline": "8%",
+    "Agencies": "12%",
+    "Status": "12%",
+    "Notes": "44%",
+}
+
+
+def build_actions_html_table():
+    """
+    The policy action tracker as a real HTML table.
+
+    This replaces a plotly go.Table, which could not do the job. go.Table
+    applies ONE fixed row height to every row. The notes in this table range
+    from empty to 581 characters, median 67, so a height that fits the longest
+    note wastes several thousand pixels on the other rows, and any smaller
+    height clips the long ones. HTML table rows size to their own content, so
+    the problem disappears.
+
+    Text is justified, per Dr Harris's review. Justification is applied only to
+    the two prose columns, Action and Notes. Justifying short cells like
+    "Not implemented" stretches a few words across the column and looks worse
+    than left alignment, which is why Goal, Deadline, Agencies and Status stay
+    left aligned.
+    """
+    header_cells = [
+        html.Th(name, style={
+            "width": width,
+            "textAlign": "left",
+            "padding": "10px 12px",
+            "backgroundColor": "#1A9E75",
+            "color": "#ffffff",
+            "fontWeight": "600",
+            "fontSize": "15px",
+            "border": "1px solid #148A65",
+            "position": "sticky",
+            "top": "0",
+            "zIndex": "2",
+        })
+        for name, width in _ACTION_COL_WIDTHS.items()
+    ]
+
+    rows = []
+    for i, a in enumerate(ACTIONS):
+        status = a["status"]
+        fill = STATUS_COLORS.get(status, "#cccccc")
+        status_text = "#2c3e50" if fill in LIGHT_STATUS_FILLS else "#ffffff"
+        stripe = "#ffffff" if i % 2 == 0 else "#F7FAF9"
+
+        base = {
+            "padding": "9px 12px",
+            "fontSize": "15px",
+            "color": "#2c3e50",
+            "backgroundColor": stripe,
+            "border": "1px solid #E0E8E5",
+            "verticalAlign": "top",
+        }
+        prose = {**base, "textAlign": "justify", "hyphens": "auto",
+                 "lineHeight": "1.5"}
+
+        definition = STATUS_DEFINITIONS.get(status, "")
+        rows.append(html.Tr([
+            html.Td(a["goal"], style={**base, "textAlign": "center",
+                                      "fontWeight": "600"}),
+            html.Td(a["action"], style=prose),
+            html.Td(a["deadline"], style={**base, "whiteSpace": "nowrap"}),
+            html.Td(a["agencies"], style=base),
+            html.Td(
+                [html.Div(status, style={"fontWeight": "600"}),
+                 html.Div(definition, style={"fontSize": "14px",
+                                             "opacity": "0.85",
+                                             "marginTop": "2px"})
+                 ] if definition else status,
+                style={**base, "backgroundColor": fill, "color": status_text},
+            ),
+            html.Td(a["notes"] or "—", style=prose),
+        ]))
+
+    return html.Div(
+        html.Table(
+            [html.Thead(html.Tr(header_cells)), html.Tbody(rows)],
+            style={"width": "100%", "borderCollapse": "collapse",
+                   "tableLayout": "fixed"},
+        ),
+        style={"overflowX": "auto", "maxHeight": "70vh", "overflowY": "auto",
+               "border": "1px solid #E0E8E5", "borderRadius": "8px"},
+    )
 
 
 def build_status_pie():
@@ -485,7 +584,7 @@ def build_status_pie():
         hoverinfo="label+percent"
     )])
     fig.update_layout(
-        title={"text": f"Action Status Summary ({len(ACTIONS)} Actions)", "font": {"size": 13}},
+        title={"text": f"Action Status Summary ({len(ACTIONS)} Actions)", "font": {"size": 16}},
         height=320,
         margin=dict(l=10, r=10, t=50, b=10),
         showlegend=False
@@ -505,20 +604,20 @@ def build_module7_layout():
     def _evidence_card(t):
         rows = [
             html.P(t["label"], style={
-                "fontWeight": "700", "fontSize": "13px", "margin": "0 0 6px",
+                "fontWeight": "700", "fontSize": "16px", "margin": "0 0 6px",
                 "color": "#0E2A24"}),
             html.P([html.Span("Target: ", style={"fontWeight": "600"}),
                     f"{t['target_pct']}% of fleet by 2030"],
-                   style={"fontSize": "12px", "margin": "0 0 6px", "color": "#444"}),
+                   style={"fontSize": "15px", "margin": "0 0 6px", "color": "#444"}),
             html.P([html.Span("What is known: ", style={"fontWeight": "600"}),
                     t["known"]],
-                   style={"fontSize": "12px", "margin": "0 0 6px", "color": "#444"}),
+                   style={"fontSize": "15px", "margin": "0 0 6px", "color": "#444"}),
             html.P([html.Span("Caveat: ", style={"fontWeight": "600", "color": "#C0392B"}),
                     t["known_caveat"]],
-                   style={"fontSize": "11px", "margin": "0 0 6px", "color": "#7B5A00"}),
+                   style={"fontSize": "14px", "margin": "0 0 6px", "color": "#7B5A00"}),
             html.P([html.Span("Why no percentage: ", style={"fontWeight": "600"}),
                     t["blocker"]],
-                   style={"fontSize": "11px", "margin": "0 0 6px", "color": "#666"}),
+                   style={"fontSize": "14px", "margin": "0 0 6px", "color": "#666"}),
         ]
         if t.get("known_source"):
             src = (html.A(t["known_source"], href=t["known_url"], target="_blank",
@@ -526,7 +625,7 @@ def build_module7_layout():
                    if t.get("known_url") else
                    html.Span(t["known_source"], style={"color": "#888"}))
             rows.append(html.P(["Source: ", src],
-                               style={"fontSize": "10px", "margin": "0", "color": "#888"}))
+                               style={"fontSize": "12px", "margin": "0", "color": "#888"}))
         return html.Div(rows, style={
             "backgroundColor": "#ffffff", "border": "1px solid #e0d5a8",
             "borderRadius": "4px", "padding": "10px 14px",
@@ -535,14 +634,14 @@ def build_module7_layout():
     pending_banner = html.Div([
         html.P("CURRENT PENETRATION NOT SHOWN. METT did not respond to the data "
                "request, so the bars below show the 2030 targets only.",
-               style={"fontWeight": "700", "fontSize": "13px",
+               style={"fontWeight": "700", "fontSize": "16px",
                       "margin": "0 0 4px", "color": "#856404"}),
         html.P("The obstacle is not the number of electric vehicles, it is the "
                "denominator. Jamaica does not publish current fleet totals by "
                "category, so a percentage cannot be calculated honestly from any "
                "public source. What each target's evidence does and does not "
                "support is set out below.",
-               style={"fontSize": "12px", "margin": "0 0 12px", "color": "#856404"}),
+               style={"fontSize": "15px", "margin": "0 0 12px", "color": "#856404"}),
         html.Div([_evidence_card(t) for t in TARGETS],
                  style={"display": "flex", "gap": "10px", "flexWrap": "wrap"}),
     ], style={
@@ -571,7 +670,7 @@ def build_module7_layout():
             "backgroundColor": "#E1F5EE",
             "color": "#0E2A24",
             "fontWeight": "700",
-            "fontSize": "15px",
+            "fontSize": "18px",
             "padding": "10px 18px",
             "marginBottom": "12px",
             "marginTop": "8px",
@@ -594,7 +693,7 @@ def build_module7_layout():
                             "border": "1px solid rgba(0,0,0,0.15)",
                         }),
                         label,
-                    ], style={"listStyle": "none", "marginBottom": "5px", "fontSize": "12px"})
+                    ], style={"listStyle": "none", "marginBottom": "5px", "fontSize": "15px"})
                     for key, label in STATUS_TIER_LABELS
                 ], style={"paddingLeft": "0"})
             ], style={"width": "50%", "display": "inline-block",
@@ -607,7 +706,7 @@ def build_module7_layout():
             "backgroundColor": "#E1F5EE",
             "color": "#0E2A24",
             "fontWeight": "700",
-            "fontSize": "15px",
+            "fontSize": "18px",
             "padding": "10px 18px",
             "marginBottom": "12px",
             "marginTop": "8px",
@@ -617,10 +716,9 @@ def build_module7_layout():
         html.P(
             "Status reflects publicly available information as of June 2026. "
             "Table updates when institutional responses arrive.",
-            style={"fontSize": "11px", "color": "#888", "marginBottom": "8px"}
+            style={"fontSize": "14px", "color": "#888", "marginBottom": "8px"}
         ),
-        dcc.Graph(id="m7-actions-table", figure=build_actions_table(),
-                  config={"displayModeBar": False}),
+        build_actions_html_table(),
 
         html.Hr(),
 
@@ -628,7 +726,7 @@ def build_module7_layout():
             "backgroundColor": "#E1F5EE",
             "color": "#0E2A24",
             "fontWeight": "700",
-            "fontSize": "15px",
+            "fontSize": "18px",
             "padding": "10px 18px",
             "marginBottom": "12px",
             "marginTop": "8px",
@@ -639,9 +737,9 @@ def build_module7_layout():
                "real progress on electric vehicles, it has usually come from a "
                "utility, a development bank, a private company or an international "
                "treaty, rather than from the ministry the policy names.",
-               style={"fontSize": "13px", "color": "#444", "marginBottom": "12px"}),
+               style={"fontSize": "16px", "color": "#444", "marginBottom": "12px"}),
 
-        html.P("Measurement", style={"fontWeight": "700", "fontSize": "13px",
+        html.P("Measurement", style={"fontWeight": "700", "fontSize": "16px",
                                      "margin": "0 0 4px"}),
         html.Ul([
             html.Li("Nobody publishes how many electric vehicles Jamaica has. Import "
@@ -658,10 +756,10 @@ def build_module7_layout():
                     "against a 100% target."),
             html.Li("JUTC has not published energy consumption data from its electric "
                     "bus pilot, although measuring it was a stated aim of the trial."),
-        ], style={"lineHeight": "1.9", "fontSize": "13px", "marginTop": "0"}),
+        ], style={"lineHeight": "1.9", "fontSize": "16px", "marginTop": "0"}),
 
         html.P("Standards and rules not yet issued",
-               style={"fontWeight": "700", "fontSize": "13px", "margin": "10px 0 4px"}),
+               style={"fontWeight": "700", "fontSize": "16px", "margin": "10px 0 4px"}),
         html.Ul([
             html.Li("No quality standard for lithium-ion batteries. In June 2024, the "
                     "month this was due, the ministry had only just asked another "
@@ -678,10 +776,10 @@ def build_module7_layout():
                     "June 2024."),
             html.Li("No publicly available plan for implementing the policy itself, "
                     "which was due in September 2023."),
-        ], style={"lineHeight": "1.9", "fontSize": "13px", "marginTop": "0"}),
+        ], style={"lineHeight": "1.9", "fontSize": "16px", "marginTop": "0"}),
 
         html.P("Delivered by others, not by the state",
-               style={"fontWeight": "700", "fontSize": "13px", "margin": "10px 0 4px"}),
+               style={"fontWeight": "700", "fontSize": "16px", "margin": "10px 0 4px"}),
         html.Ul([
             html.Li("Charging is being built commercially by JPS and Evergo. There is "
                     "no published national deployment plan, and no single place a "
@@ -702,10 +800,10 @@ def build_module7_layout():
                     "neither is set up specifically for electric vehicle batteries. "
                     "The one control that does now cover vehicle batteries came from "
                     "an international treaty obligation, not from this policy."),
-        ], style={"lineHeight": "1.9", "fontSize": "13px", "marginTop": "0"}),
+        ], style={"lineHeight": "1.9", "fontSize": "16px", "marginTop": "0"}),
 
         html.P("Design limits worth noting",
-               style={"fontWeight": "700", "fontSize": "13px", "margin": "10px 0 4px"}),
+               style={"fontWeight": "700", "fontSize": "16px", "margin": "10px 0 4px"}),
         html.Ul([
             html.Li("The reduced import duty was capped at 1,000 vehicles. A cap of "
                     "that size cannot deliver a 12% share of a fleet of several "
@@ -719,10 +817,10 @@ def build_module7_layout():
                     "electric vehicle is in Jamaica can be independently checked, and "
                     "the same vehicle can look clean or dirty depending on which "
                     "assumption is used."),
-        ], style={"lineHeight": "1.9", "fontSize": "13px", "marginTop": "0"}),
+        ], style={"lineHeight": "1.9", "fontSize": "16px", "marginTop": "0"}),
         html.P(
             "Full analysis: docs/ev_policy_gap_analysis.md",
-            style={"fontSize": "11px", "color": "#888"}
+            style={"fontSize": "14px", "color": "#888"}
         ),
 
 

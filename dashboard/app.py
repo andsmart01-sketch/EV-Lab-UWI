@@ -84,16 +84,16 @@ def cached_layout(key, builder):
 # solve for the fraction. Legends always sit below the plot, always clear of the
 # axis title, at any height.
 
-_TITLE_BAND_PX   = 62    # room above the plot for the chart title
-_AXIS_TITLE_PX   = 46    # room below the plot for tick labels plus the x-axis title
-_NO_AXIS_TITLE_PX = 26   # same, when there is no x-axis title
-_LEGEND_ROW_PX   = 18    # height of one wrapped row of legend entries
-_BOTTOM_PAD_PX   = 14
+_TITLE_BAND_PX   = 76    # room above the plot for the chart title
+_AXIS_TITLE_PX   = 57    # room below the plot for tick labels plus the x-axis title
+_NO_AXIS_TITLE_PX = 32   # same, when there is no x-axis title
+_LEGEND_ROW_PX   = 22    # height of one wrapped row of legend entries
+_BOTTOM_PAD_PX   = 17
 
 
-_ROTATED_TICK_PX = 34    # extra clearance when x tick labels are angled
-_CHAR_PX         = 7.2   # approx px per character of a rotated axis title
-_MIN_PLOT_PX     = 130
+_ROTATED_TICK_PX = 42    # extra clearance when x tick labels are angled
+_CHAR_PX         = 8.9   # approx px per character of a rotated axis title
+_MIN_PLOT_PX     = 160
 
 
 def chart_layout(title, height, xtitle=None, ytitle=None, y2title=None,
@@ -160,7 +160,7 @@ def chart_layout(title, height, xtitle=None, ytitle=None, y2title=None,
             orientation="h", yanchor="top",
             y=-(clearance / plot_height),
             xanchor="center", x=0.5,
-            font=dict(size=10),
+            font=dict(size=12),
         )
     return layout
 
@@ -168,7 +168,7 @@ def chart_layout(title, height, xtitle=None, ytitle=None, y2title=None,
 def placeholder_layout():
     return html.P(
         "Module content will be built in accordance with the project timeline.",
-        style={"color": "#777", "fontSize": "13px", "marginTop": "20px"}
+        style={"color": "#777", "fontSize": "16px", "marginTop": "20px"}
     )
 
 
@@ -183,8 +183,8 @@ def serve_layout():
         # Sidebar -- navigation
         html.Div([
             html.Div([
-                html.H2("Jamaica EV Dashboard", style={"color": "#fff", "fontSize": "16px", "margin": "0 0 2px"}),
-                html.P("UWI Mona -- EV Lab 2026", style={"color": "var(--sidebar-text)", "fontSize": "11px", "margin": "0"}),
+                html.H2("Jamaica EV Dashboard", style={"color": "#fff", "fontSize": "20px", "margin": "0 0 2px"}),
+                html.P("UWI Mona -- EV Lab 2026", style={"color": "var(--sidebar-text)", "fontSize": "14px", "margin": "0"}),
             ], style={"padding": "20px 20px 24px"}),
 
             html.Div(id="sidebar-nav-container"),
@@ -202,14 +202,14 @@ def serve_layout():
             html.Div(id="module-instructions"),
             html.Details([
                 html.Summary("Global settings", style={
-                    "fontSize": "13px", "fontWeight": "500",
+                    "fontSize": "16px", "fontWeight": "500",
                     "color": "var(--text-secondary)",
                     "cursor": "pointer", "padding": "12px 20px",
                 }),
                 html.Div([
                     html.Div([
                         html.Label("Fuel grade", style={
-                            "fontSize": "12px", "fontWeight": "500",
+                            "fontSize": "15px", "fontWeight": "500",
                             "display": "block", "marginBottom": "4px",
                         }),
                         dcc.Dropdown(
@@ -217,26 +217,26 @@ def serve_layout():
                             options=[{"label": "87 octane", "value": "g87"},
                                      {"label": "90 octane", "value": "g90"}],
                             value="g90", clearable=False,
-                            style={"width": "160px", "fontSize": "13px", "marginBottom": "8px"},
+                            style={"width": "160px", "fontSize": "16px", "marginBottom": "8px"},
                         ),
                     ], style={"marginRight": "32px"}),
                     html.Div([
                         html.Label("Home charging, JPS residential (J$/kWh)", style={
-                            "fontSize": "12px", "fontWeight": "500",
+                            "fontSize": "15px", "fontWeight": "500",
                             "display": "block", "marginBottom": "4px",
                         }),
                         dcc.Input(
                             id="electricity-rate-slider", type="number",
                             value=42, min=1, max=200, step=0.01, debounce=True,
                             style={"width": "160px", "padding": "6px 8px",
-                                   "fontSize": "13px",
+                                   "fontSize": "16px",
                                    "border": "1px solid var(--card-border)",
                                    "borderRadius": "6px"},
                         ),
                     ], style={"marginRight": "32px"}),
                     html.Div([
                         html.Label("Public charging network", style={
-                            "fontSize": "12px", "fontWeight": "500",
+                            "fontSize": "15px", "fontWeight": "500",
                             "display": "block", "marginBottom": "4px",
                         }),
                         dcc.Dropdown(
@@ -245,10 +245,10 @@ def serve_layout():
                                      for k, v in CHARGING_NETWORKS.items()],
                             value=DEFAULT_CHARGING_NETWORK,
                             clearable=False,
-                            style={"width": "260px", "fontSize": "12px"},
+                            style={"width": "260px", "fontSize": "15px"},
                         ),
                         html.Div(id="charging-network-note", style={
-                            "fontSize": "10px", "marginTop": "4px",
+                            "fontSize": "12px", "marginTop": "4px",
                             "maxWidth": "260px",
                         }),
                     ], style={"marginRight": "32px"}),
@@ -257,14 +257,14 @@ def serve_layout():
                         # names the operator whose rate is actually in the box.
                         html.Label(id="public-charging-rate-label",
                                    children="Evergo rate (J$/kWh)", style={
-                            "fontSize": "12px", "fontWeight": "500",
+                            "fontSize": "15px", "fontWeight": "500",
                             "display": "block", "marginBottom": "4px",
                         }),
                         dcc.Input(
                             id="public-charging-rate", type="number",
                             value=96, min=1, max=200, step=0.01, debounce=True,
                             style={"width": "160px", "padding": "6px 8px",
-                                   "fontSize": "13px",
+                                   "fontSize": "16px",
                                    "border": "1px solid var(--card-border)",
                                    "borderRadius": "6px"},
                         ),
@@ -278,7 +278,7 @@ def serve_layout():
                     html.Div([
                         html.Div(id="markup-custom-input-wrapper", children=[
                             html.Label("Fuel price you pay (J$/L)", style={
-                                "fontSize": "12px", "fontWeight": "500",
+                                "fontSize": "15px", "fontWeight": "500",
                                 "display": "block", "marginBottom": "4px",
                             }),
                             dcc.Input(
@@ -288,22 +288,22 @@ def serve_layout():
                                 # tenth of a dollar, so 0.5 could not express them.
                                 value=None, min=50, max=600, step=0.1, debounce=True,
                                 style={"width": "240px", "padding": "6px 8px",
-                                       "fontSize": "13px",
+                                       "fontSize": "16px",
                                        "border": "1px solid var(--card-border)",
                                        "borderRadius": "6px"},
                             ),
                         ]),
                         html.Div(id="effective-fuel-price-display",
-                                 style={"fontSize": "11px", "color": "var(--text-muted)",
+                                 style={"fontSize": "14px", "color": "var(--text-muted)",
                                         "marginTop": "6px", "maxWidth": "260px"}),
 
                         html.Details([
                             html.Summary("Other price sources (field survey)", style={
-                                "fontSize": "11px", "cursor": "pointer",
+                                "fontSize": "14px", "cursor": "pointer",
                                 "color": "var(--text-muted)", "marginBottom": "6px",
                             }),
                             html.Label("Retail markup source", style={
-                                "fontSize": "12px", "fontWeight": "500",
+                                "fontSize": "15px", "fontWeight": "500",
                                 "display": "block", "marginBottom": "4px",
                             }),
                             dcc.Dropdown(
@@ -315,7 +315,7 @@ def serve_layout():
                                 # average until a price is entered.
                                 value=CUSTOM_MARKUP_INDEX,
                                 clearable=False,
-                                style={"width": "260px", "fontSize": "12px",
+                                style={"width": "260px", "fontSize": "15px",
                                        "marginBottom": "8px"},
                             ),
                             html.P(
@@ -329,7 +329,7 @@ def serve_layout():
                                 "National Compliance and Regulatory Authority has inspected "
                                 "the dispenser for accuracy, and gives the period the check "
                                 "remains valid.",
-                                style={"fontSize": "10px", "color": "var(--text-muted)",
+                                style={"fontSize": "12px", "color": "var(--text-muted)",
                                        "marginTop": "0", "maxWidth": "260px"},
                             ),
                         ], open=False, style={"marginTop": "10px"}),
@@ -344,7 +344,7 @@ def serve_layout():
 
             html.Div(id="global-settings-summary", style={
                 "backgroundColor": "#EBF5FB", "padding": "10px 16px",
-                "borderRadius": "4px", "fontSize": "13px",
+                "borderRadius": "4px", "fontSize": "16px",
                 "margin": "0 32px 16px",
             }),
             html.Div(id="page-header", style={"padding": "0 32px"}),
@@ -1401,7 +1401,7 @@ def module8_layout():
         marker=dict(color="#1A7A6E", size=14),
         text=df_others["country"],
         textposition="top center",
-        textfont=dict(size=11),
+        textfont=dict(size=14),
         name="Other countries",
     ))
     fig_scatter.add_trace(go.Scatter(
@@ -1411,7 +1411,7 @@ def module8_layout():
         marker=dict(color="#2E75B6", size=16, line=dict(color="#0E2A24", width=1.5)),
         text=df_jamaica["country"],
         textposition="top center",
-        textfont=dict(size=11, color="#2E75B6"),
+        textfont=dict(size=14, color="#2E75B6"),
         name="Jamaica",
     ))
 
@@ -1443,7 +1443,7 @@ def module8_layout():
         "backgroundColor": "#E1F5EE",
         "color": "#0E2A24",
         "fontWeight": "700",
-        "fontSize": "15px",
+        "fontSize": "18px",
         "padding": "10px 18px",
         "marginBottom": "12px",
         "marginTop": "20px",
@@ -1453,7 +1453,7 @@ def module8_layout():
         "backgroundColor": "#1A9E75",
         "color": "white",
         "fontWeight": "600",
-        "fontSize": "12px",
+        "fontSize": "15px",
         "padding": "8px 12px",
         "textAlign": "left",
         "border": "1px solid #cccccc",
@@ -1462,7 +1462,7 @@ def module8_layout():
     def td_style(country):
         base = {
             "padding": "7px 12px",
-            "fontSize": "12px",
+            "fontSize": "15px",
             "border": "1px solid #e0e0e0",
             "verticalAlign": "top",
         }
@@ -1499,7 +1499,7 @@ def module8_layout():
         [html.Thead(html.Tr([html.Th(h, style=th) for h in headers])),
          html.Tbody(rows)],
         style={"width": "100%", "borderCollapse": "collapse",
-               "fontSize": "12px"}
+               "fontSize": "15px"}
     )
 
     return html.Div([
@@ -1522,7 +1522,7 @@ def module8_layout():
             "identical pump price, yet Bahamian BEV share is roughly four times Jamaica's. "
             "Whatever separates them is not the price of fuel. That single pair is stronger "
             "evidence than the trend line.",
-            style={"fontSize": "13px", "color": "#444",
+            style={"fontSize": "16px", "color": "#444",
                    "marginTop": "8px", "marginBottom": "20px"}
         ),
 
@@ -1532,13 +1532,13 @@ def module8_layout():
 
 
 def module1_layout():
-    lbl = {"fontSize": "12px", "fontWeight": "600", "color": "#555",
+    lbl = {"fontSize": "15px", "fontWeight": "600", "color": "#555",
            "marginBottom": "4px", "display": "block"}
-    inp = {"width": "100%", "padding": "6px 8px", "fontSize": "13px",
+    inp = {"width": "100%", "padding": "6px 8px", "fontSize": "16px",
            "border": "1px solid #ccc", "borderRadius": "4px",
            "marginBottom": "6px", "boxSizing": "border-box"}
-    hint = {"fontSize": "11px", "color": "#888", "marginBottom": "10px", "marginTop": "2px"}
-    det_sum = {"cursor": "pointer", "fontWeight": "600", "fontSize": "13px",
+    hint = {"fontSize": "14px", "color": "#888", "marginBottom": "10px", "marginTop": "2px"}
+    det_sum = {"cursor": "pointer", "fontWeight": "600", "fontSize": "16px",
                "padding": "6px 0", "marginBottom": "8px"}
     det_style = {"backgroundColor": "#fff", "border": "1px solid #e0e0e0",
                  "borderRadius": "6px", "padding": "14px 16px", "marginBottom": "10px"}
@@ -1555,7 +1555,7 @@ def module1_layout():
                     style={"color": "#C55A11", "marginTop": "4px", "marginBottom": "10px"}),
             html.Label("Select model", style=lbl),
             dcc.Dropdown(id="m1-ice-dropdown", options=ice_opts, value=d_ice,
-                         clearable=False, style={"fontSize": "13px", "marginBottom": "10px"}),
+                         clearable=False, style={"fontSize": "16px", "marginBottom": "10px"}),
             html.Label("Purchase price (J$)", style=lbl),
             dcc.Input(id="m1-ice-price", type="number", debounce=True,
                       value=ICE_VEHICLES[d_ice]["price_jmd"], style=inp),
@@ -1575,7 +1575,7 @@ def module1_layout():
                     style={"color": "#1A7A6E", "marginTop": "4px", "marginBottom": "10px"}),
             html.Label("Select model", style=lbl),
             dcc.Dropdown(id="m1-ev-dropdown", options=ev_opts, value=d_ev,
-                         clearable=False, style={"fontSize": "13px", "marginBottom": "10px"}),
+                         clearable=False, style={"fontSize": "16px", "marginBottom": "10px"}),
             html.Label("Purchase price (J$)", style=lbl),
             dcc.Input(id="m1-ev-price", type="number", debounce=True,
                       placeholder="Enter dealer quote", value=None, style=inp),
@@ -1622,18 +1622,18 @@ def module1_layout():
                     {"label": " Mix of both", "value": "mix"},
                 ],
                 value="home",
-                labelStyle={"display": "block", "fontSize": "13px", "marginBottom": "6px"},
+                labelStyle={"display": "block", "fontSize": "16px", "marginBottom": "6px"},
             ),
             html.Div(id="m1-charging-mix-inputs", children=[
                 html.Label("% charged at home",
-                           style={"fontSize": "12px", "fontWeight": "500", "display": "block",
+                           style={"fontSize": "15px", "fontWeight": "500", "display": "block",
                                   "marginTop": "10px", "marginBottom": "4px"}),
                 dcc.Input(id="m1-home-charge-pct", type="number", debounce=True,
                           value=70, min=0, max=100, step=1,
-                          style={"width": "100px", "padding": "6px 8px", "fontSize": "13px",
+                          style={"width": "100px", "padding": "6px 8px", "fontSize": "16px",
                                  "border": "1px solid #ccc", "borderRadius": "4px"}),
                 html.Span(" % (rest at public rate)",
-                          style={"fontSize": "12px", "color": "#888", "marginLeft": "8px"}),
+                          style={"fontSize": "15px", "color": "#888", "marginLeft": "8px"}),
             ], style={"display": "none"}),
             html.P("Home rate and public rate are set in Global settings above.", style=hint),
         ], open=True, style=det_style),
@@ -1644,7 +1644,7 @@ def module1_layout():
             "ICE prices: Toyota Jamaica (toyotajamaica.com, June 2026), converted at J$158.53/USD. "
             "EV prices: not publicly listed by the authorized dealer in Jamaica — enter a confirmed dealer quote. "
             "Consumption figures are estimates for Jamaican driving conditions.",
-            style={"fontSize": "11px", "color": "#999", "marginTop": "8px",
+            style={"fontSize": "14px", "color": "#999", "marginTop": "8px",
                    "borderTop": "1px solid #eee", "paddingTop": "10px"}),
     ], style={"width": "38%", "minWidth": "300px", "flexShrink": "0"})
 
@@ -1652,7 +1652,7 @@ def module1_layout():
         html.P(
             "Enter all required fields to see the Total Cost of Ownership chart.",
             id="m1-tco-placeholder",
-            style={"color": "#aaa", "fontSize": "13px", "marginTop": "40px",
+            style={"color": "#aaa", "fontSize": "16px", "marginTop": "40px",
                    "textAlign": "center"},
         ),
         dcc.Graph(id="m1-tco-fig", style={"display": "none"},
@@ -1739,7 +1739,7 @@ def update_global_settings_summary(effective_price, electricity_rate):
         html.Strong("Active global settings: "),
         f"Fuel price = {fuel_display}",
         f"   |   Electricity rate = J${electricity_rate}/kWh",
-    ], style={"fontSize": "13px", "color": "#444", "margin": "0"})
+    ], style={"fontSize": "16px", "color": "#444", "margin": "0"})
 
 
 @app.callback(
@@ -1750,7 +1750,7 @@ def show_fuel_price_prompt(effective_price):
     if effective_price is None:
         return html.Div([
             html.P("Select a fuel grade in Global settings to enable Module 1, 5, and 6 calculations.",
-                   style={"margin": "0", "fontSize": "13px", "color": "#856404"}),
+                   style={"margin": "0", "fontSize": "16px", "color": "#856404"}),
         ], style={
             "backgroundColor": "#FFF9E6",
             "border": "1px solid #E0A106",
@@ -1785,7 +1785,7 @@ def update_ev_inputs(model_key):
                 f"Range: {v.get('range_km_nedc')} km (NEDC). "
                 f"Price auto-filled from {source}. "
                 "You may override this with a negotiated price.",
-                style={"fontSize": "11px", "color": "#2d8a2d",
+                style={"fontSize": "14px", "color": "#2d8a2d",
                        "marginTop": "2px", "marginBottom": "10px"},
             ),
         ])
@@ -1793,7 +1793,7 @@ def update_ev_inputs(model_key):
         note = html.P(
             f"Range: {v.get('range_km_nedc')} km (NEDC). "
             "Price not publicly listed — enter a confirmed dealer quote.",
-            style={"fontSize": "11px", "color": "#888",
+            style={"fontSize": "14px", "color": "#888",
                    "marginTop": "2px", "marginBottom": "10px"},
         )
     return note, price
@@ -1844,11 +1844,11 @@ def calculate_module5(ice_key, ice_consumption, ev_key, ev_consumption,
         xaxis={"visible": False}, yaxis={"visible": False},
         annotations=[{"text": "Fill in inputs to see the CO2 chart.",
                       "xref": "paper", "yref": "paper", "x": 0.5, "y": 0.5,
-                      "showarrow": False, "font": {"size": 13, "color": "#aaa"}}],
+                      "showarrow": False, "font": {"size": 16, "color": "#aaa"}}],
     )
     if not all([ice_consumption, ev_consumption, daily_km, years, grid_scenario]):
         return (html.P("Enter all inputs to see results.",
-                       style={"color": "#888", "fontSize": "13px"}),
+                       style={"color": "#888", "fontSize": "16px"}),
                 empty_fig)
 
     years = int(years)
@@ -1867,7 +1867,7 @@ def calculate_module5(ice_key, ice_consumption, ev_key, ev_consumption,
         return (html.P("No battery capacity on record for the selected BEV, so the "
                        "manufacturing CO2 premium cannot be derived. Add battery_kwh "
                        "to this vehicle in data/vehicles.py.",
-                       style={"color": "#C0392B", "fontSize": "13px"}),
+                       style={"color": "#C0392B", "fontSize": "16px"}),
                 empty_fig)
     mfg_premium_kg = mfg_premium_t * 1000
 
@@ -1893,8 +1893,8 @@ def calculate_module5(ice_key, ice_consumption, ev_key, ev_consumption,
         "borderRadius": "6px", "padding": "12px 14px",
         "flex": "1", "minWidth": "130px", "textAlign": "center",
     }
-    big  = {"fontSize": "18px", "fontWeight": "700", "margin": "4px 0"}
-    tiny = {"fontSize": "12px", "color": "#777", "margin": "0"}
+    big  = {"fontSize": "22px", "fontWeight": "700", "margin": "4px 0"}
+    tiny = {"fontSize": "15px", "color": "#777", "margin": "0"}
 
     cards = html.Div([
         html.Div([html.P("Annual ICE CO2", style=tiny),
@@ -1916,7 +1916,7 @@ def calculate_module5(ice_key, ice_consumption, ev_key, ev_consumption,
                          style={**big, "color": "#1A7A6E"})], style=card),
         html.Div([html.P("Carbon payback", style=tiny),
                   html.P(payback_text,
-                         style={**big, "color": payback_col, "fontSize": "14px"})],
+                         style={**big, "color": payback_col, "fontSize": "17px"})],
                  style=card),
     ], style={"display": "flex", "gap": "8px", "flexWrap": "wrap", "marginTop": "12px"})
 
@@ -1990,7 +1990,7 @@ def calculate_module1(ice_price, ice_consumption, ev_price, ev_consumption,
     if not all([ice_consumption, ev_consumption, daily_km, fuel_price, electricity_rate]):
         msg = html.P(
             "Enter all required values (fuel price in Global settings, consumption, daily distance) to see results.",
-            style={"color": "#888", "fontSize": "13px"},
+            style={"color": "#888", "fontSize": "16px"},
         )
         return msg, empty_fig, hide_chart, show_ph
 
@@ -2015,8 +2015,8 @@ def calculate_module1(ice_price, ice_consumption, ev_price, ev_consumption,
         "borderRadius": "6px", "padding": "12px 14px",
         "flex": "1", "minWidth": "130px", "textAlign": "center",
     }
-    big  = {"fontSize": "15px", "fontWeight": "700", "margin": "4px 0"}
-    tiny = {"fontSize": "12px", "color": "#777", "margin": "0"}
+    big  = {"fontSize": "18px", "fontWeight": "700", "margin": "4px 0"}
+    tiny = {"fontSize": "15px", "color": "#777", "margin": "0"}
 
     summary_cards = html.Div([
         html.Div([html.P("ICE fuel cost/km", style=tiny),
@@ -2114,12 +2114,12 @@ def calculate_module1(ice_price, ice_consumption, ev_price, ev_consumption,
 
     verdict_box = html.Div([
         html.P("When does the EV overtake?",
-               style={"fontSize": "12px", "color": "#777", "margin": "0 0 4px"}),
+               style={"fontSize": "15px", "color": "#777", "margin": "0 0 4px"}),
         html.P(verdict_text,
-               style={"fontSize": "17px", "fontWeight": "700",
+               style={"fontSize": "21px", "fontWeight": "700",
                       "color": verdict_col, "margin": "0 0 4px"}),
         html.P(verdict_sub,
-               style={"fontSize": "11px", "color": "#888", "margin": "0"}),
+               style={"fontSize": "14px", "color": "#888", "margin": "0"}),
     ], style={"backgroundColor": "#ffffff", "border": f"1px solid {verdict_col}",
               "borderRadius": "6px", "padding": "12px 16px", "marginTop": "10px"})
 
@@ -2260,10 +2260,10 @@ def toggle_module_visibility(active_tab):
 
 
 def module5_layout():
-    lbl = {"fontSize": "12px", "fontWeight": "600", "color": "#555",
+    lbl = {"fontSize": "15px", "fontWeight": "600", "color": "#555",
            "marginBottom": "4px", "display": "block"}
     inp = {
-        "width": "100%", "padding": "6px 8px", "fontSize": "13px",
+        "width": "100%", "padding": "6px 8px", "fontSize": "16px",
         "border": "1px solid #ccc", "borderRadius": "4px",
         "marginBottom": "14px", "boxSizing": "border-box",
     }
@@ -2285,7 +2285,7 @@ def module5_layout():
             html.Label("Select model", style=lbl),
             dcc.Dropdown(id="m5-ice-dropdown", options=ice_opts,
                          value=d_ice, clearable=False,
-                         style={"fontSize": "13px", "marginBottom": "14px"}),
+                         style={"fontSize": "16px", "marginBottom": "14px"}),
             html.Label("Fuel consumption (L/100km)", style=lbl),
             dcc.Input(id="m5-ice-consumption", type="number", debounce=True,
                       value=ICE_VEHICLES[d_ice]["consumption_per_100km"],
@@ -2298,7 +2298,7 @@ def module5_layout():
             html.Label("Select model", style=lbl),
             dcc.Dropdown(id="m5-ev-dropdown", options=ev_opts,
                          value=d_ev, clearable=False,
-                         style={"fontSize": "13px", "marginBottom": "14px"}),
+                         style={"fontSize": "16px", "marginBottom": "14px"}),
             html.Label("Energy consumption (kWh/100km)", style=lbl),
             dcc.Input(id="m5-ev-consumption", type="number", debounce=True,
                       value=BEV_VEHICLES[d_ev]["consumption_per_100km"],
@@ -2317,7 +2317,7 @@ def module5_layout():
             html.Label("Grid scenario", style=lbl),
             dcc.Dropdown(id="m5-grid-scenario", options=grid_opts,
                          value=d_grid, clearable=False,
-                         style={"fontSize": "13px", "marginBottom": "4px"}),
+                         style={"fontSize": "16px", "marginBottom": "4px"}),
         ], style=det_style),
 
         html.Div(id="m5-cards"),
@@ -2325,7 +2325,7 @@ def module5_layout():
         html.P(
             "The electric figure includes the emissions from building its battery, "
             "which is why the carbon payback is not immediate.",
-            style={"fontSize": "11px", "color": "#999", "marginTop": "12px",
+            style={"fontSize": "14px", "color": "#999", "marginTop": "12px",
                    "borderTop": "1px solid #eee", "paddingTop": "10px"}),
     ], style={"width": "40%", "minWidth": "300px", "flexShrink": "0"})
 
@@ -2356,19 +2356,19 @@ def module5_layout():
 def module4_layout():
     banner = {
         "backgroundColor": "#E1F5EE", "color": "#0E2A24",
-        "fontWeight": "700", "fontSize": "15px",
+        "fontWeight": "700", "fontSize": "18px",
         "padding": "10px 16px", "marginBottom": "12px",
         "marginTop": "8px", "borderRadius": "6px",
         "borderLeft": "3px solid #1A9E75",
     }
-    lbl = {"fontSize": "12px", "fontWeight": "600", "color": "#555",
+    lbl = {"fontSize": "15px", "fontWeight": "600", "color": "#555",
            "marginBottom": "4px", "display": "block"}
-    inp = {"width": "100%", "padding": "6px 8px", "fontSize": "13px",
+    inp = {"width": "100%", "padding": "6px 8px", "fontSize": "16px",
            "border": "1px solid #ccc", "borderRadius": "4px",
            "marginBottom": "10px", "boxSizing": "border-box"}
 
     btn_base = {
-        "padding": "7px 14px", "fontSize": "12px", "fontWeight": "600",
+        "padding": "7px 14px", "fontSize": "15px", "fontWeight": "600",
         "border": "1px solid #1A9E75", "borderRadius": "4px",
         "cursor": "pointer", "backgroundColor": "#ffffff", "color": "#1A9E75",
         "transition": "background-color 0.15s",
@@ -2386,7 +2386,7 @@ def module4_layout():
                 html.P(
                     f"2030 target: {b['target_pct_2030']}% EV penetration "
                     "(National EV Policy 2023)",
-                    style={"fontSize": "12px", "color": "#666", "marginBottom": "14px"},
+                    style={"fontSize": "15px", "color": "#666", "marginBottom": "14px"},
                 ),
 
                 html.Label("Choose a scenario", style=lbl),
@@ -2416,7 +2416,7 @@ def module4_layout():
                     id=f"m4-{stream_key}-preset-note",
                     children=preset_note_default,
                     style={
-                        "fontSize": "11px", "color": "#444",
+                        "fontSize": "14px", "color": "#444",
                         "backgroundColor": "#f4faf8",
                         "padding": "8px 12px", "borderRadius": "4px",
                         "borderLeft": "3px solid #1A9E75",
@@ -2428,7 +2428,7 @@ def module4_layout():
                     html.Summary(
                         "Fine-tune the S-curve (advanced)",
                         style={
-                            "fontSize": "12px", "cursor": "pointer",
+                            "fontSize": "15px", "cursor": "pointer",
                             "color": "#777", "padding": "4px 0",
                             "marginBottom": "10px",
                         },
@@ -2437,7 +2437,7 @@ def module4_layout():
                         "Steepness: how sharply adoption accelerates once it starts. "
                         "Midpoint: the year when 50% of the stream's target penetration is reached. "
                         "Clicking a preset above updates these values automatically.",
-                        style={"fontSize": "11px", "color": "#888", "marginBottom": "10px"},
+                        style={"fontSize": "14px", "color": "#888", "marginBottom": "10px"},
                     ),
                     html.Label(
                         "S-curve steepness  (0.1 = slow gradual ramp,  1.5 = sharp rapid ramp)",
@@ -2521,7 +2521,7 @@ def module4_layout():
             "choose Conservative, Base case, or Optimistic assumptions, then expand "
             "'Fine-tune' if you want to adjust the S-curve shape manually. "
             "The chart below updates immediately."
-        ], style={"fontSize": "13px", "color": "#444", "marginBottom": "16px"}),
+        ], style={"fontSize": "16px", "color": "#444", "marginBottom": "16px"}),
 
 
         html.Div("Global projection settings", style=banner),
@@ -2540,11 +2540,11 @@ def module4_layout():
                     options=[{"label": v["label"], "value": k}
                              for k, v in GRID_SCENARIOS.items()],
                     value="irp_2026", clearable=False,
-                    style={"fontSize": "13px", "marginBottom": "12px"},
+                    style={"fontSize": "16px", "marginBottom": "12px"},
                 ),
                 html.P(
                     "Same grid scenarios as Module 5. Affects the CO2 avoided figures only.",
-                    style={"fontSize": "11px", "color": "#888"},
+                    style={"fontSize": "14px", "color": "#888"},
                 ),
             ], style={
                 "flex": "1", "minWidth": "300px",
@@ -2559,7 +2559,7 @@ def module4_layout():
             html.Summary(
                 "Private Vehicle Fleet  (2030 target: 12%)",
                 style={"cursor": "pointer", "fontWeight": "600",
-                       "fontSize": "14px", "padding": "8px"},
+                       "fontSize": "17px", "padding": "8px"},
             ),
             stream_controls("private"),
         ], open=True, style={
@@ -2571,7 +2571,7 @@ def module4_layout():
             html.Summary(
                 "Public Transport Fleet  (2030 target: 16%)",
                 style={"cursor": "pointer", "fontWeight": "600",
-                       "fontSize": "14px", "padding": "8px"},
+                       "fontSize": "17px", "padding": "8px"},
             ),
             stream_controls("public"),
         ], open=False, style={
@@ -2583,7 +2583,7 @@ def module4_layout():
             html.Summary(
                 "GOJ Fleet  (2030 target: 100%)",
                 style={"cursor": "pointer", "fontWeight": "600",
-                       "fontSize": "14px", "padding": "8px"},
+                       "fontSize": "17px", "padding": "8px"},
             ),
             stream_controls("goj"),
         ], open=False, style={
@@ -2600,7 +2600,7 @@ def module4_layout():
             "section instead asks the counterfactual question directly: at any chosen "
             "level of private fleet electrification, what happens to emissions? "
             "Move the slider to any value from 0% to 100%.",
-            style={"fontSize": "12px", "color": "#555", "marginBottom": "12px"},
+            style={"fontSize": "15px", "color": "#555", "marginBottom": "12px"},
         ),
 
         html.Div([
@@ -2614,7 +2614,7 @@ def module4_layout():
                      "value": "forward"},
                 ],
                 value="back",
-                labelStyle={"display": "block", "fontSize": "12px",
+                labelStyle={"display": "block", "fontSize": "15px",
                             "marginBottom": "6px"},
             ),
 
@@ -2631,7 +2631,7 @@ def module4_layout():
                 "Penetration is applied as a constant share across the whole period, "
                 "which is the cleanest way to read the counterfactual. It is not a "
                 "forecast of the adoption path.",
-                style={"fontSize": "11px", "color": "#888", "marginTop": "8px"},
+                style={"fontSize": "14px", "color": "#888", "marginTop": "8px"},
             ),
 
             html.Label("Include battery manufacturing emissions",
@@ -2643,7 +2643,7 @@ def module4_layout():
                     {"label": "  No, tailpipe and grid only", "value": "no"},
                 ],
                 value="yes",
-                labelStyle={"display": "block", "fontSize": "12px",
+                labelStyle={"display": "block", "fontSize": "15px",
                             "marginBottom": "6px"},
             ),
         ], style={
@@ -2691,13 +2691,13 @@ def module4_layout():
 
 
 def module6_layout():
-    lbl  = {"fontSize": "12px", "fontWeight": "600", "color": "#555",
+    lbl  = {"fontSize": "15px", "fontWeight": "600", "color": "#555",
             "marginBottom": "4px", "display": "block"}
-    inp  = {"width": "100%", "padding": "6px 8px", "fontSize": "13px",
+    inp  = {"width": "100%", "padding": "6px 8px", "fontSize": "16px",
             "border": "1px solid #ccc", "borderRadius": "4px",
             "marginBottom": "6px", "boxSizing": "border-box"}
-    hint = {"fontSize": "11px", "color": "#888", "marginBottom": "10px", "marginTop": "2px"}
-    det_sum = {"cursor": "pointer", "fontWeight": "600", "fontSize": "13px",
+    hint = {"fontSize": "14px", "color": "#888", "marginBottom": "10px", "marginTop": "2px"}
+    det_sum = {"cursor": "pointer", "fontWeight": "600", "fontSize": "16px",
                "padding": "6px 0", "marginBottom": "8px"}
     det_style = {"backgroundColor": "#fff", "border": "1px solid #e0e0e0",
                  "borderRadius": "6px", "padding": "14px 16px", "marginBottom": "10px"}
@@ -2713,7 +2713,7 @@ def module6_layout():
     def loan_block(key, v):
         default_dp, default_rate, default_term = v["loan_defaults"]
         return html.Details([
-            html.Summary(v["label"], style={**det_sum, "fontSize": "12px"}),
+            html.Summary(v["label"], style={**det_sum, "fontSize": "15px"}),
             html.Label("Down payment (%)", style=lbl),
             dcc.Input(id={"kind": "m6-dp", "veh": key}, type="number", debounce=True,
                       value=default_dp, min=0, max=100, step=5, style=inp),
@@ -2781,14 +2781,14 @@ def module6_layout():
                     {"label": " Custom rate", "value": "custom"},
                 ],
                 value="public",
-                labelStyle={"display": "block", "fontSize": "12px", "marginBottom": "6px"},
+                labelStyle={"display": "block", "fontSize": "15px", "marginBottom": "6px"},
             ),
             html.Div(id="m6-custom-rate-wrapper", children=[
                 html.Label("Custom charging rate (J$/kWh)", style={**lbl, "marginTop": "8px"}),
                 dcc.Input(id="m6-custom-rate", type="number", debounce=True,
                           value=None, min=10, max=200, step=0.5,
                           placeholder="J$/kWh",
-                          style={"width": "160px", "padding": "6px 8px", "fontSize": "13px",
+                          style={"width": "160px", "padding": "6px 8px", "fontSize": "16px",
                                  "border": "1px solid #ccc", "borderRadius": "4px"}),
             ], style={"display": "none"}),
             html.P("Public rate is confirmed. Fleet HQ rate is a project estimate for "
@@ -2806,7 +2806,7 @@ def module6_layout():
                          for k, v in TAXI_VEHICLES.items()],
                 value=list(TAXI_DEFAULT_SELECTION),
                 multi=True, clearable=False,
-                style={"fontSize": "12px"},
+                style={"fontSize": "15px"},
             ),
             html.P("Pick any combination. At least one ICE vehicle is needed for a "
                    "crossover comparison. Vehicles marked 'consumption derived' have "
@@ -2831,7 +2831,7 @@ def module6_layout():
         html.P(
             "Fill in the inputs to see cumulative income chart and crossover analysis.",
             id="m6-chart-placeholder",
-            style={"color": "#aaa", "fontSize": "13px", "marginTop": "40px",
+            style={"color": "#aaa", "fontSize": "16px", "marginTop": "40px",
                    "textAlign": "center"},
         ),
         dcc.Graph(id="m6-income-fig", style={"display": "none"},
@@ -2886,12 +2886,12 @@ def homepage_layout():
         cards.append(
             html.Div([
                 html.I(className=NAV_ICONS.get(tab_id, "fa-solid fa-circle"),
-                       style={"fontSize": "22px", "color": "var(--accent)", "marginBottom": "10px"}),
+                       style={"fontSize": "27px", "color": "var(--accent)", "marginBottom": "10px"}),
                 html.H4(f"{n}. {name}",
-                        style={"margin": "0 0 6px", "fontSize": "15px", "color": "var(--text-primary)"}),
+                        style={"margin": "0 0 6px", "fontSize": "18px", "color": "var(--text-primary)"}),
                 html.Span("In development", style={
                     "display": "inline-block", "marginTop": "8px",
-                    "fontSize": "10px", "fontWeight": "700",
+                    "fontSize": "12px", "fontWeight": "700",
                     "letterSpacing": "0.4px", "textTransform": "uppercase",
                     "color": "#8A6D00", "backgroundColor": "#FFF4CC",
                     "border": "1px solid #E8D48A",
@@ -2901,7 +2901,7 @@ def homepage_layout():
         )
     return html.Div([
         html.H2("Jamaica EV Dashboard", style={"color": "var(--text-primary)", "marginBottom": "4px"}),
-        html.P("Select a module below to get started.", style={"color": "var(--text-secondary)", "marginBottom": "24px", "fontSize": "13px"}),
+        html.P("Select a module below to get started.", style={"color": "var(--text-secondary)", "marginBottom": "24px", "fontSize": "16px"}),
         html.Div(cards, style={"display": "grid", "gridTemplateColumns": "repeat(auto-fill, minmax(220px, 1fr))", "gap": "16px"}),
     ])
 
@@ -2913,8 +2913,8 @@ def homepage_layout():
 def render_sidebar_nav(active_tab):
     links = [
         html.Div([
-            html.I(className="fa-solid fa-house", style={"width": "18px", "fontSize": "13px"}),
-            html.Span("Home", style={"fontSize": "13px"}),
+            html.I(className="fa-solid fa-house", style={"width": "18px", "fontSize": "16px"}),
+            html.Span("Home", style={"fontSize": "16px"}),
         ], id={"type": "nav-link", "index": "home"},
            className="sidebar-nav-link" + (" active" if active_tab == "home" else ""),
            n_clicks=0)
@@ -2925,9 +2925,9 @@ def render_sidebar_nav(active_tab):
         links.append(
             html.Div([
                 html.I(className=NAV_ICONS.get(tab_id, "fa-solid fa-circle"),
-                       style={"width": "18px", "fontSize": "13px"}),
+                       style={"width": "18px", "fontSize": "16px"}),
                 html.Span(f"{n}. {name}",
-                          style={"fontSize": "13px",
+                          style={"fontSize": "16px",
                                  "opacity": "0.55" if in_dev else "1"}),
             ], id={"type": "nav-link", "index": tab_id},
                className="sidebar-nav-link" + (" active" if is_active else ""),
@@ -3084,7 +3084,7 @@ def calculate_module4(horizon, grid_scenario,
         xaxis={"visible": False}, yaxis={"visible": False},
         annotations=[{"text": "Adjust all inputs to see projections.",
                       "xref": "paper", "yref": "paper", "x": 0.5, "y": 0.5,
-                      "showarrow": False, "font": {"size": 13, "color": "#aaa"}}],
+                      "showarrow": False, "font": {"size": 16, "color": "#aaa"}}],
     )
     required = [horizon, grid_scenario,
                 priv_size, priv_km, priv_cons, priv_ev_cons, priv_steep, priv_mid,
@@ -3146,10 +3146,10 @@ def calculate_module4(horizon, grid_scenario,
     card = {"backgroundColor": "#ffffff", "border": "1px solid #e0e0e0",
             "borderRadius": "6px", "padding": "16px 20px",
             "flex": "1", "minWidth": "180px", "textAlign": "center"}
-    big  = {"fontSize": "22px", "fontWeight": "700", "margin": "6px 0"}
-    tiny = {"fontSize": "12px", "color": "#777", "margin": "0"}
+    big  = {"fontSize": "27px", "fontWeight": "700", "margin": "6px 0"}
+    tiny = {"fontSize": "15px", "color": "#777", "margin": "0"}
     section_banner = {"backgroundColor": "#E1F5EE", "color": "#0E2A24",
-                      "fontWeight": "700", "fontSize": "14px",
+                      "fontWeight": "700", "fontSize": "17px",
                       "padding": "8px 16px", "marginBottom": "12px",
                       "marginTop": "20px", "borderRadius": "6px",
                       "borderLeft": "3px solid #1A9E75"}
@@ -3169,9 +3169,9 @@ def calculate_module4(horizon, grid_scenario,
         target_cards.append(html.Div([
             html.P(s["label"], style=tiny),
             html.P(f"Target {s['target']}% | Projected {proj_text}",
-                   style={"fontSize": "13px", "margin": "6px 0", "color": "#333"}),
-            html.P(gap_text, style={**big, "color": gap_color, "fontSize": "20px"}),
-            html.P("gap to 2030 target", style={"fontSize": "10px", "color": "#888"}),
+                   style={"fontSize": "16px", "margin": "6px 0", "color": "#333"}),
+            html.P(gap_text, style={**big, "color": gap_color, "fontSize": "25px"}),
+            html.P("gap to 2030 target", style={"fontSize": "12px", "color": "#888"}),
         ], style=card))
 
     fig_pen = go.Figure()
@@ -3263,9 +3263,9 @@ def calculate_module4(horizon, grid_scenario,
         plain_english = html.Div([
             html.P(summary_intro,
                    style={"fontWeight": "600", "margin": "0 0 6px",
-                          "fontSize": "13px", "color": summary_color}),
+                          "fontSize": "16px", "color": summary_color}),
             html.Ul(
-                [html.Li(line, style={"fontSize": "13px", "color": summary_color})
+                [html.Li(line, style={"fontSize": "16px", "color": summary_color})
                  for line in summary_lines],
                 style={"margin": "0", "paddingLeft": "18px"},
             ),
@@ -3279,7 +3279,7 @@ def calculate_module4(horizon, grid_scenario,
     else:
         plain_english = html.P(
             "Extend the projection horizon to include 2030 to see the target gap summary.",
-            style={"fontSize": "13px", "color": "#888", "marginBottom": "16px"},
+            style={"fontSize": "16px", "color": "#888", "marginBottom": "16px"},
         )
 
     summary_cards = html.Div([
@@ -3357,7 +3357,7 @@ def calculate_module6(
 
     no_chart  = {"display": "none"}
     show_chart = {"display": "block"}
-    show_ph   = {"color": "#aaa", "fontSize": "13px", "marginTop": "40px", "textAlign": "center"}
+    show_ph   = {"color": "#aaa", "fontSize": "16px", "marginTop": "40px", "textAlign": "center"}
     hide_ph   = {"display": "none"}
 
     required = [trips_per_day, trip_km, fare, days_per_week, fuel_price, public_rate]
@@ -3369,7 +3369,7 @@ def calculate_module6(
         return (go.Figure(), no_chart,
                 {**show_ph, "color": "#C0392B"},
                 html.P("Select at least one vehicle to compare.",
-                       style={"color": "#C0392B", "fontSize": "13px"}),
+                       style={"color": "#C0392B", "fontSize": "16px"}),
                 None)
 
     # Recover the vehicle key for each pattern-matched input from the callback
@@ -3481,7 +3481,7 @@ def calculate_module6(
     if not results:
         return (go.Figure(), no_chart, show_ph,
                 html.P("No price on record for the selected vehicles.",
-                       style={"color": "#C0392B", "fontSize": "13px"}), None)
+                       style={"color": "#C0392B", "fontSize": "16px"}), None)
 
     ordered = [k for k in TAXI_VEHICLES if k in results]
 
@@ -3489,8 +3489,8 @@ def calculate_module6(
     card = {"backgroundColor": "#ffffff", "border": "1px solid #e0e0e0",
             "borderRadius": "6px", "padding": "12px 14px",
             "flex": "1", "minWidth": "130px", "textAlign": "center"}
-    big  = {"fontSize": "18px", "fontWeight": "700", "margin": "4px 0"}
-    tiny = {"fontSize": "12px", "color": "#777", "margin": "0"}
+    big  = {"fontSize": "22px", "fontWeight": "700", "margin": "4px 0"}
+    tiny = {"fontSize": "15px", "color": "#777", "margin": "0"}
 
     vehicle_rows = []
     for key in ordered:
@@ -3500,11 +3500,11 @@ def calculate_module6(
         type_color = r["colour"]
         vehicle_rows.append(html.Div([
             html.Div([
-                html.Span(r["label"], style={"fontWeight": "700", "fontSize": "13px", "color": type_color}),
+                html.Span(r["label"], style={"fontWeight": "700", "fontSize": "16px", "color": type_color}),
                 html.Span("  consumption derived, not measured" if not r["measured"] else "",
-                          style={"fontSize": "11px", "color": "#C0392B", "fontWeight": "600"}),
+                          style={"fontSize": "14px", "color": "#C0392B", "fontWeight": "600"}),
                 html.Br(),
-                html.Span(r["consumption_source"], style={"fontSize": "10px", "color": "#999"}),
+                html.Span(r["consumption_source"], style={"fontSize": "12px", "color": "#999"}),
             ], style={"marginBottom": "8px"}),
             html.Div([
                 html.Div([html.P("Purchase price", style=tiny),
@@ -3525,7 +3525,7 @@ def calculate_module6(
             f"Revenue: J${revenue_per_year:,.0f}/yr  ·  "
             f"{trips_per_day:.0f} trips/day  ·  "
             f"{km_per_year:,.0f} km/yr  ·  {charging_note}",
-            style={"fontSize": "12px", "color": "#555", "marginBottom": "10px"},
+            style={"fontSize": "15px", "color": "#555", "marginBottom": "10px"},
         ),
         *vehicle_rows,
     ])
@@ -3632,10 +3632,10 @@ def calculate_module6(
             sub_text    = f"EV cumulative net income first exceeds {baseline_label}."
             value_color = ev_color
         return html.Div([
-            html.P(label,      style={"fontSize": "12px", "color": "#777", "margin": "0 0 4px"}),
-            html.P(value_text, style={"fontSize": "20px", "fontWeight": "700",
+            html.P(label,      style={"fontSize": "15px", "color": "#777", "margin": "0 0 4px"}),
+            html.P(value_text, style={"fontSize": "25px", "fontWeight": "700",
                                       "color": value_color, "margin": "4px 0"}),
-            html.P(sub_text,   style={"fontSize": "11px", "color": "#888", "margin": "4px 0 0"}),
+            html.P(sub_text,   style={"fontSize": "14px", "color": "#888", "margin": "4px 0 0"}),
         ], style={"backgroundColor": "#ffffff", "border": "1px solid #e0e0e0",
                   "borderRadius": "6px", "padding": "14px 18px",
                   "flex": "1", "minWidth": "200px", "textAlign": "center"})
@@ -3644,15 +3644,15 @@ def calculate_module6(
         crossover_cards = html.P(
             "Select at least one ICE vehicle to get a crossover comparison. "
             "Crossover is measured against an ICE baseline.",
-            style={"fontSize": "12px", "color": "#C0392B", "marginTop": "8px"})
+            style={"fontSize": "15px", "color": "#C0392B", "marginTop": "8px"})
     elif not ev_keys:
         crossover_cards = html.P(
             "Select at least one EV to get a crossover comparison.",
-            style={"fontSize": "12px", "color": "#C0392B", "marginTop": "8px"})
+            style={"fontSize": "15px", "color": "#C0392B", "marginTop": "8px"})
     else:
         crossover_cards = html.Div([
             html.P(f"When does each EV overtake the {baseline_label}?",
-                   style={"fontWeight": "700", "fontSize": "14px", "marginBottom": "8px",
+                   style={"fontWeight": "700", "fontSize": "17px", "marginBottom": "8px",
                           "color": "#0E2A24"}),
             html.Div([
                 crossover_card(
@@ -3666,7 +3666,7 @@ def calculate_module6(
                 "the list is used as the baseline and the others are plotted for "
                 "comparison. Dotted lines on the chart mark vehicles whose consumption "
                 "is derived rather than measured.",
-                style={"fontSize": "11px", "color": "#888", "marginTop": "8px"}),
+                style={"fontSize": "14px", "color": "#888", "marginTop": "8px"}),
         ])
 
     return fig, show_chart, hide_ph, vehicle_cards, crossover_cards
@@ -3792,7 +3792,7 @@ def calculate_m4_fleet_emissions(mode, penetration, include_mfg,
         xaxis={"visible": False}, yaxis={"visible": False},
         annotations=[{"text": "Adjust the inputs to see the counterfactual.",
                       "xref": "paper", "yref": "paper", "x": 0.5, "y": 0.5,
-                      "showarrow": False, "font": {"size": 13, "color": "#aaa"}}],
+                      "showarrow": False, "font": {"size": 16, "color": "#aaa"}}],
     )
     if not all(x is not None for x in [mode, penetration, fleet_now,
                                        km_per_year, ice_cons, ev_cons]):
@@ -3884,8 +3884,8 @@ def calculate_m4_fleet_emissions(mode, penetration, include_mfg,
     card = {"backgroundColor": "#ffffff", "border": "1px solid #e0e0e0",
             "borderRadius": "6px", "padding": "14px 16px",
             "flex": "1", "minWidth": "160px", "textAlign": "center"}
-    big  = {"fontSize": "20px", "fontWeight": "700", "margin": "6px 0"}
-    tiny = {"fontSize": "12px", "color": "#777", "margin": "0"}
+    big  = {"fontSize": "25px", "fontWeight": "700", "margin": "6px 0"}
+    tiny = {"fontSize": "15px", "color": "#777", "margin": "0"}
 
     period = f"{years[0]} to {years[-1]}"
     net_col = "#2d8a2d" if total_net_avoided > 0 else "#C0392B"
@@ -3894,7 +3894,7 @@ def calculate_m4_fleet_emissions(mode, penetration, include_mfg,
         html.P(
             f"At {penetration}% private fleet electrification over {period}: "
             f"{ev_fleet_peak:,.0f} electric vehicles at peak.",
-            style={"fontSize": "12px", "color": "#555", "marginBottom": "10px"},
+            style={"fontSize": "15px", "color": "#555", "marginBottom": "10px"},
         ),
         html.Div([
             html.Div([html.P("Gross CO2 avoided", style=tiny),
@@ -3915,7 +3915,7 @@ def calculate_m4_fleet_emissions(mode, penetration, include_mfg,
             html.Div([html.P("Manufacturing debt repaid", style=tiny),
                       html.P(str(payback_year) if payback_year else "not within period",
                              style={**big, "color": "#2d8a2d" if payback_year else "#C0392B",
-                                    "fontSize": "16px"})], style=card),
+                                    "fontSize": "20px"})], style=card),
         ], style={"display": "flex", "gap": "8px", "flexWrap": "wrap"}),
         html.P(
             price_note + " "
@@ -3929,7 +3929,7 @@ def calculate_m4_fleet_emissions(mode, penetration, include_mfg,
                if include_mfg == "yes" else
                "Battery manufacturing is EXCLUDED, so these figures flatter the "
                "electric case. "),
-            style={"fontSize": "11px", "color": "#888", "marginTop": "10px"},
+            style={"fontSize": "14px", "color": "#888", "marginTop": "10px"},
         ),
     ])
 
@@ -3997,7 +3997,7 @@ def apply_charging_network(network_key):
     substituting a made-up number.
     """
     net = CHARGING_NETWORKS.get(network_key)
-    base = {"fontSize": "10px", "marginTop": "4px", "maxWidth": "260px"}
+    base = {"fontSize": "12px", "marginTop": "4px", "maxWidth": "260px"}
     short = CHARGING_NETWORK_SHORT_NAME.get(network_key, "Public")
     label = f"{short} rate (J$/kWh)"
     if net is None:
@@ -4108,13 +4108,13 @@ def update_module_instructions(active_tab):
     info = instructions[active_tab]
     return html.Div([
         html.P(info["title"],
-               style={"fontSize": "17px", "fontWeight": "700", "color": "#0E2A24",
+               style={"fontSize": "21px", "fontWeight": "700", "color": "#0E2A24",
                       "margin": "0 0 4px"}),
         html.P(info["summary"],
-               style={"fontSize": "13px", "color": "#444", "margin": "0 0 4px",
+               style={"fontSize": "16px", "color": "#444", "margin": "0 0 4px",
                       "lineHeight": "1.5"}),
         html.P(["How to use: ", html.Em(info["how"])],
-               style={"fontSize": "12px", "color": "#666", "margin": "0",
+               style={"fontSize": "15px", "color": "#666", "margin": "0",
                       "fontStyle": "italic"}),
     ], style={
         "backgroundColor": "#F0F7F4",
