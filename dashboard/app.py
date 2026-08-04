@@ -7,6 +7,8 @@ import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'data'))
 from vehicles import (ICE_VEHICLES, BEV_VEHICLES,
                       get_ice_dropdown_options, get_bev_dropdown_options,
+                      MY_CAR_KEY, my_car_defaults, resolve_vehicle,
+                      CURRENT_YEAR,
                       bev_manufacturing_premium_tonnes,
                       bev_manufacturing_premium_note,
                       BATTERY_PRODUCTION_CO2_KG_PER_KWH,
@@ -263,6 +265,13 @@ def serve_layout():
 
     dcc.Store(id="active-tab-store", data="home"),
     dcc.Store(id="effective-fuel-price-store", data=None),
+    # My Car, session only. dcc.Store defaults to memory storage, which is
+    # cleared on reload and never written to disk or browser storage. That is
+    # deliberate: this dashboard may end up on a shared UWI machine, where one
+    # person's custom vehicle persisting into the next person's session would
+    # be confusing and a small privacy problem.
+    dcc.Store(id="my-car-ice-store", data={}),
+    dcc.Store(id="my-car-ev-store",  data={}),
 
     html.Div([
 
@@ -1840,6 +1849,76 @@ def module8_layout():
     ], style={"padding": "4px"})
 
 
+def my_car_fields(kind, prefix):
+    """
+    The editable panel shown when My Car is selected.
+
+    kind is "ice" or "bev"; prefix namespaces the component ids so the same
+    panel can appear in more than one module without id collisions.
+
+    Every field is pre-filled with the median of the real dataset rather than
+    left blank. A form of empty boxes invites a half-filled set of inputs that
+    silently computes nonsense, whereas starting from a coherent vehicle means
+    changing one field still gives a sensible answer.
+    """
+    d = my_car_defaults(kind)
+    lbl = {"fontSize": "14px", "fontWeight": "500", "display": "block",
+           "marginBottom": "3px", "marginTop": "8px"}
+    inp = {"width": "100%", "padding": "6px 8px", "fontSize": "15px",
+           "border": "1px solid var(--card-border)", "borderRadius": "6px",
+           "boxSizing": "border-box"}
+
+    def num(field, label, **kw):
+        return html.Div([
+            html.Label(label, style=lbl),
+            dcc.Input(id={"kind": f"{prefix}-mycar-{kind}", "field": field},
+                      type="number", debounce=True, value=d.get(field),
+                      style=inp, **kw),
+        ])
+
+    rows = [
+        num("price_jmd", "Purchase price (J$)", min=0, step=1000),
+        num("consumption_per_100km",
+            "Fuel use (L/100km)" if kind == "ice" else "Energy use (kWh/100km)",
+            min=0.1, max=70, step=0.1),
+        num("annual_maintenance_jmd", "Annual maintenance (J$)", min=0, step=1000),
+        num("year", "Model year", min=1990, max=CURRENT_YEAR + 1, step=1),
+        num("depreciation_y1", "First-year depreciation (0 to 1)",
+            min=0, max=0.9, step=0.01),
+        num("depreciation_subsequent", "Depreciation each later year (0 to 1)",
+            min=0, max=0.9, step=0.01),
+    ]
+    if kind == "bev":
+        rows.append(num("battery_kwh", "Battery capacity (kWh)",
+                        min=1, max=250, step=0.1))
+        rows.append(html.Div([
+            html.Label("Where the battery was made", style=lbl),
+            dcc.Dropdown(
+                id={"kind": f"{prefix}-mycar-bev", "field": "battery_origin"},
+                options=[{"label": o.title(), "value": o}
+                         for o in BATTERY_PRODUCTION_CO2_KG_PER_KWH],
+                value=d["battery_origin"], clearable=False,
+                style={"fontSize": "15px"},
+            ),
+            html.P("Battery origin sets the manufacturing CO2 intensity: "
+                   "68 kg CO2e/kWh for China and India, 60 for Europe, the US, "
+                   "Japan and Korea (Bieker 2021, ICCT).",
+                   style={"fontSize": "12px", "color": "#8A9E97",
+                          "margin": "4px 0 0 0", "lineHeight": "1.45"}),
+        ]))
+    else:
+        rows.append(num("engine_cc", "Engine size (cc)", min=0, max=8000, step=50))
+
+    return html.Div(rows + [
+        html.P("These values are yours and are kept for this browser session "
+               "only. Nothing is saved to your computer, and reloading the "
+               "page restores the defaults.",
+               style={"fontSize": "12px", "color": "#8A9E97",
+                      "margin": "10px 0 0 0", "lineHeight": "1.45"}),
+    ], style={"backgroundColor": "#F7FAF9", "border": "1px solid #E0E8E5",
+              "borderRadius": "8px", "padding": "10px 12px", "marginTop": "8px"})
+
+
 def estimate_footnote_block(include_consumption=True):
     """
     Explains the asterisk that marks estimated figures.
@@ -1898,6 +1977,8 @@ def module1_layout():
             html.Label("Select model", style=lbl),
             dcc.Dropdown(id="m1-ice-dropdown", options=ice_opts, value=d_ice,
                          clearable=False, style={"fontSize": "16px", "marginBottom": "10px"}),
+            html.Div(id="m1-mycar-ice-wrap", style={"display": "none"},
+                     children=my_car_fields("ice", "m1")),
             html.Label("Purchase price (J$)", style=lbl),
             dcc.Input(id="m1-ice-price", type="number", debounce=True,
                       value=ICE_VEHICLES[d_ice]["price_jmd"], style=inp),
@@ -1918,6 +1999,8 @@ def module1_layout():
             html.Label("Select model", style=lbl),
             dcc.Dropdown(id="m1-ev-dropdown", options=ev_opts, value=d_ev,
                          clearable=False, style={"fontSize": "16px", "marginBottom": "10px"}),
+            html.Div(id="m1-mycar-ev-wrap", style={"display": "none"},
+                     children=my_car_fields("bev", "m1")),
             html.Label("Purchase price (J$)", style=lbl),
             dcc.Input(id="m1-ev-price", type="number", debounce=True,
                       placeholder="Enter dealer quote", value=None, style=inp),
@@ -2012,6 +2095,83 @@ def module1_layout():
     ])
 
 # ── Callbacks ─────────────────────────────────────────────────────
+
+# ── My Car ────────────────────────────────────────────────────────
+
+@app.callback(
+    Output("m1-mycar-ice-wrap", "style"),
+    Input("m1-ice-dropdown", "value"),
+)
+def toggle_m1_mycar_ice(key):
+    return {"display": "block"} if key == MY_CAR_KEY else {"display": "none"}
+
+
+@app.callback(
+    Output("m5-mycar-ice-wrap", "style"),
+    Input("m5-ice-dropdown", "value"),
+)
+def toggle_m5_mycar_ice(key):
+    return {"display": "block"} if key == MY_CAR_KEY else {"display": "none"}
+
+
+@app.callback(
+    Output("m5-mycar-ev-wrap", "style"),
+    Input("m5-ev-dropdown", "value"),
+)
+def toggle_m5_mycar_ev(key):
+    return {"display": "block"} if key == MY_CAR_KEY else {"display": "none"}
+
+
+
+@app.callback(
+    Output("m1-mycar-ev-wrap", "style"),
+    Input("m1-ev-dropdown", "value"),
+)
+def toggle_m1_mycar_ev(key):
+    return {"display": "block"} if key == MY_CAR_KEY else {"display": "none"}
+
+
+@app.callback(
+    Output("my-car-ice-store", "data"),
+    Input({"kind": "m1-mycar-ice", "field": ALL}, "value"),
+    Input({"kind": "m5-mycar-ice", "field": ALL}, "value"),
+    State({"kind": "m1-mycar-ice", "field": ALL}, "id"),
+    State({"kind": "m5-mycar-ice", "field": ALL}, "id"),
+)
+def save_my_car_ice(v1, v5, id1, id5):
+    """
+    Collect the custom ICE fields into the session store.
+
+    Both modules write to the SAME store, so a car entered in one module is
+    already there in the other. Whichever panel the user last touched wins,
+    which is what "my car" should mean: one vehicle, not one per module.
+    """
+    trig = dash.callback_context.triggered_id
+    if isinstance(trig, dict) and trig.get("kind") == "m5-mycar-ice":
+        ids, values = id5, v5
+    else:
+        ids, values = id1, v1
+    return {i["field"]: v for i, v in zip(ids, values) if v is not None}
+
+
+@app.callback(
+    Output("my-car-ev-store", "data"),
+    Input({"kind": "m1-mycar-bev", "field": ALL}, "value"),
+    Input({"kind": "m5-mycar-bev", "field": ALL}, "value"),
+    State({"kind": "m1-mycar-bev", "field": ALL}, "id"),
+    State({"kind": "m5-mycar-bev", "field": ALL}, "id"),
+)
+def save_my_car_ev(v1, v5, id1, id5):
+    """Collect the custom EV fields into the session store. See above."""
+    trig = dash.callback_context.triggered_id
+    if isinstance(trig, dict) and trig.get("kind") == "m5-mycar-bev":
+        ids, values = id5, v5
+    else:
+        ids, values = id1, v1
+    return {i["field"]: v for i, v in zip(ids, values) if v is not None}
+
+
+
 @app.callback(
     Output("effective-fuel-price-store", "data"),
     Output("effective-fuel-price-display", "children"),
@@ -2100,6 +2260,9 @@ def show_fuel_price_prompt(effective_price):
     Input("m1-ice-dropdown", "value")
 )
 def update_ice_inputs(model_key):
+    if model_key == MY_CAR_KEY:
+        # My Car supplies its own price through the custom panel.
+        return dash.no_update
     return ICE_VEHICLES[model_key]["price_jmd"]
 
 
@@ -2109,6 +2272,8 @@ def update_ice_inputs(model_key):
     Input("m1-ev-dropdown", "value")
 )
 def update_ev_inputs(model_key):
+    if model_key == MY_CAR_KEY:
+        return dash.no_update, dash.no_update
     v = BEV_VEHICLES[model_key]
     price = v.get("price_jmd")
     source = v.get("price_source")
@@ -2147,6 +2312,8 @@ def toggle_charging_mix_input(location):
     Input("m5-ice-dropdown", "value")
 )
 def m5_update_ice(model_key):
+    if model_key == MY_CAR_KEY:
+        return dash.no_update
     return ICE_VEHICLES[model_key]["consumption_per_100km"]
 
 
@@ -2155,7 +2322,17 @@ def m5_update_ice(model_key):
     Input("m5-ev-dropdown", "value")
 )
 def m5_update_ev(model_key):
+    if model_key == MY_CAR_KEY:
+        return dash.no_update
     return BEV_VEHICLES[model_key]["consumption_per_100km"]
+
+
+@app.callback(
+    Output("m4-grid-note", "children"),
+    Input("m4-grid-re-pct", "value"),
+)
+def describe_m4_grid(re_pct):
+    return describe_grid_intensity(re_pct)
 
 
 @app.callback(
@@ -2176,9 +2353,11 @@ def describe_m5_grid(re_pct):
     Input("m5-daily-km", "value"),
     Input("m5-years", "value"),
     Input("m5-grid-re-pct", "value"),
+    State("my-car-ice-store", "data"),
+    State("my-car-ev-store", "data"),
 )
 def calculate_module5(ice_key, ice_consumption, ev_key, ev_consumption,
-                      daily_km, years, grid_re_pct):
+                      daily_km, years, grid_re_pct, my_ice, my_ev):
     empty_fig = go.Figure()
     empty_fig.update_layout(
         plot_bgcolor="#ffffff", paper_bgcolor="#ffffff",
@@ -2197,6 +2376,12 @@ def calculate_module5(ice_key, ice_consumption, ev_key, ev_consumption,
     # The slider is in percent renewable, which is what a person can reason
     # about. Convert to carbon intensity, which is what the arithmetic needs.
     intensity = renewable_pct_to_intensity(grid_re_pct)
+
+    ice_v = resolve_vehicle(ice_key, "ice", my_ice)
+    ev_v  = resolve_vehicle(ev_key, "bev", my_ev)
+    if ice_v is None or ev_v is None:
+        return (html.P("Select both vehicles to see results.",
+                       style={"color": "#888", "fontSize": "16px"}), empty_fig)
     annual_km = daily_km * 365.0
 
     annual_co2_ice = (ice_consumption / 100) * annual_km * CO2_PER_LITRE_PETROL
@@ -2205,7 +2390,7 @@ def calculate_module5(ice_key, ice_consumption, ev_key, ev_consumption,
     # Manufacturing premium derived from battery capacity, not hardcoded.
     # If the selected BEV has no battery capacity on record we surface that
     # rather than silently substituting an invented default.
-    mfg_premium_t = bev_manufacturing_premium_tonnes(ev_key)
+    mfg_premium_t = bev_manufacturing_premium_tonnes(ev_v)
     if mfg_premium_t is None:
         return (html.P("No battery capacity on record for the selected BEV, so the "
                        "manufacturing CO2 premium cannot be derived. Add battery_kwh "
@@ -2319,11 +2504,14 @@ def calculate_module5(ice_key, ice_consumption, ev_key, ev_consumption,
     Input("public-charging-rate", "value"),
     Input("m1-charging-location", "value"),
     Input("m1-home-charge-pct", "value"),
+    State("my-car-ice-store", "data"),
+    State("my-car-ev-store", "data"),
 )
 def calculate_module1(ice_price, ice_consumption, ev_price, ev_consumption,
                       daily_km, fuel_price, electricity_rate, years,
                       ice_model_key, ev_model_key,
-                      public_rate, charging_location, home_charge_pct):
+                      public_rate, charging_location, home_charge_pct,
+                      my_ice, my_ev):
     hide_chart = {"display": "none"}
     show_chart = {"display": "block"}
     show_ph    = {}
@@ -2381,8 +2569,14 @@ def calculate_module1(ice_price, ice_consumption, ev_price, ev_consumption,
     ice_annual_fuel  = (ice_consumption / 100) * fuel_price * daily_km * 365
     ev_annual_energy = (ev_consumption  / 100) * effective_ev_rate * daily_km * 365
 
-    ice_v = ICE_VEHICLES[ice_model_key]
-    ev_v  = BEV_VEHICLES[ev_model_key]
+    # resolve_vehicle honours My Car. Indexing the dicts directly here would
+    # raise a KeyError the moment a user picked the custom option.
+    ice_v = resolve_vehicle(ice_model_key, "ice", my_ice)
+    ev_v  = resolve_vehicle(ev_model_key, "bev", my_ev)
+    if ice_v is None or ev_v is None:
+        return (html.P("Select both vehicles to see results.",
+                       style={"color": "#888", "fontSize": "16px"}),
+                empty_fig, hide_chart, show_ph)
     ice_dep_y1, ice_dep_sub, ice_maint = (
         ice_v["depreciation_y1"], ice_v["depreciation_subsequent"], ice_v["annual_maintenance_jmd"]
     )
@@ -2484,6 +2678,8 @@ def sync_m1_ice_consumption(inp_val, slider_val, model_key):
         return dash.no_update, dash.no_update
     tid = ctx.triggered[0]["prop_id"].split(".")[0]
     if tid == "m1-ice-dropdown":
+        if model_key == MY_CAR_KEY:
+            raise dash.exceptions.PreventUpdate
         v = ICE_VEHICLES[model_key]["consumption_per_100km"]
         return v, v
     if tid == "m1-ice-consumption":
@@ -2505,6 +2701,8 @@ def sync_m1_ev_consumption(inp_val, slider_val, model_key):
         return dash.no_update, dash.no_update
     tid = ctx.triggered[0]["prop_id"].split(".")[0]
     if tid == "m1-ev-dropdown":
+        if model_key == MY_CAR_KEY:
+            raise dash.exceptions.PreventUpdate
         v = BEV_VEHICLES[model_key]["consumption_per_100km"]
         return v, v
     if tid == "m1-ev-consumption":
@@ -2629,6 +2827,8 @@ def module5_layout():
             dcc.Dropdown(id="m5-ice-dropdown", options=ice_opts,
                          value=d_ice, clearable=False,
                          style={"fontSize": "16px", "marginBottom": "14px"}),
+            html.Div(id="m5-mycar-ice-wrap", style={"display": "none"},
+                     children=my_car_fields("ice", "m5")),
             html.Label("Fuel consumption (L/100km)", style=lbl),
             dcc.Input(id="m5-ice-consumption", type="number", debounce=True,
                       value=ICE_VEHICLES[d_ice]["consumption_per_100km"],
@@ -2642,6 +2842,8 @@ def module5_layout():
             dcc.Dropdown(id="m5-ev-dropdown", options=ev_opts,
                          value=d_ev, clearable=False,
                          style={"fontSize": "16px", "marginBottom": "14px"}),
+            html.Div(id="m5-mycar-ev-wrap", style={"display": "none"},
+                     children=my_car_fields("bev", "m5")),
             html.Label("Energy consumption (kWh/100km)", style=lbl),
             dcc.Input(id="m5-ev-consumption", type="number", debounce=True,
                       value=BEV_VEHICLES[d_ev]["consumption_per_100km"],
@@ -2903,17 +3105,30 @@ def module4_layout():
                 ),
                 html.Div(style={"height": "16px"}),
                 html.Label("Grid CO2 intensity scenario", style=lbl),
-                dcc.Dropdown(
-                    id="m4-grid-scenario",
-                    options=[{"label": v["label"], "value": k}
-                             for k, v in GRID_SCENARIOS.items()],
-                    value="irp_2026", clearable=False,
-                    style={"fontSize": "16px", "marginBottom": "12px"},
-                ),
+                # Was a three-option dropdown. It is now the same renewable
+                # share slider used in the emissions module, so the two modules
+                # ask the same question in the same units and a value between
+                # the published scenarios is reachable in both.
+                html.Div(dcc.Slider(
+                    id="m4-grid-re-pct",
+                    min=GRID_RE_MIN, max=GRID_RE_MAX, step=0.5,
+                    value=DEFAULT_RE_PCT,
+                    marks=GRID_SLIDER_MARKS,
+                    tooltip={"placement": "top", "always_visible": False},
+                    included=True,
+                ), style={"padding": "0 14px", "marginTop": "4px"}),
                 html.P(
-                    "Same grid scenarios as Module 5. Affects the CO2 avoided figures only.",
-                    style={"fontSize": "14px", "color": "#888"},
+                    "Marks show Jamaica's 2022 measured mix (11.5%) and the "
+                    "Integrated Resource Plan projections for 2026 (26.7%) and "
+                    "2030 (49.8%). Affects the CO2 avoided figures only.",
+                    style={"fontSize": "12px", "color": "#8A9E97",
+                           "margin": "30px 0 0 0", "lineHeight": "1.45"},
                 ),
+                html.Div(id="m4-grid-note", style={
+                    "fontSize": "13px", "color": "#5B7A70",
+                    "marginTop": "8px", "marginBottom": "6px",
+                    "lineHeight": "1.5",
+                }),
             ], style={
                 "flex": "1", "minWidth": "300px",
                 "backgroundColor": "#fff", "border": "1px solid #e0e0e0",
@@ -3421,7 +3636,7 @@ def hex_to_rgba(hex_color, alpha=0.5):
     Output("m4-co2-fig",         "figure"),
     Output("m4-revenue-fig",     "figure"),
     Input("m4-horizon", "value"),
-    Input("m4-grid-scenario", "value"),
+    Input("m4-grid-re-pct", "value"),
     Input("m4-private-fleet-size", "value"),
     Input("m4-private-km-per-year", "value"),
     Input("m4-private-consumption", "value"),
@@ -3441,7 +3656,7 @@ def hex_to_rgba(hex_color, alpha=0.5):
     Input("m4-goj-steepness", "value"),
     Input("m4-goj-midpoint", "value"),
 )
-def calculate_module4(horizon, grid_scenario,
+def calculate_module4(horizon, grid_re_pct,
                       priv_size, priv_km, priv_cons, priv_ev_cons, priv_steep, priv_mid,
                       pub_size, pub_km, pub_cons, pub_ev_cons, pub_steep, pub_mid,
                       goj_size, goj_km, goj_cons, goj_ev_cons, goj_steep, goj_mid):
@@ -3454,7 +3669,7 @@ def calculate_module4(horizon, grid_scenario,
                       "xref": "paper", "yref": "paper", "x": 0.5, "y": 0.5,
                       "showarrow": False, "font": {"size": 16, "color": "#aaa"}}],
     )
-    required = [horizon, grid_scenario,
+    required = [horizon, grid_re_pct,
                 priv_size, priv_km, priv_cons, priv_ev_cons, priv_steep, priv_mid,
                 pub_size, pub_km, pub_cons, pub_ev_cons, pub_steep, pub_mid,
                 goj_size, goj_km, goj_cons, goj_ev_cons, goj_steep, goj_mid]
@@ -3465,7 +3680,7 @@ def calculate_module4(horizon, grid_scenario,
     current_year = datetime.now().year
     years = list(range(current_year, current_year + int(horizon) + 1))
 
-    grid_intensity = GRID_SCENARIOS[grid_scenario]["intensity_kg_per_kwh"]
+    grid_intensity = renewable_pct_to_intensity(grid_re_pct)
 
     streams = {
         "private": {"size": priv_size, "km": priv_km, "cons": priv_cons,

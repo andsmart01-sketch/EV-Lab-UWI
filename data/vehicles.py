@@ -589,7 +589,12 @@ def bev_manufacturing_premium_tonnes(vehicle_key, amortise_used=True):
     record, so callers must handle the missing case explicitly rather than
     silently falling back to a made-up default.
     """
-    v = BEV_VEHICLES.get(vehicle_key)
+    # Accepts either a key or a vehicle dict. The dict form is what makes this
+    # work for My Car, whose battery capacity and origin come from the session
+    # rather than from BEV_VEHICLES. Looking the key up unconditionally would
+    # have returned None for a custom EV and reported "no battery capacity on
+    # record" for a vehicle whose capacity the user had just typed in.
+    v = vehicle_key if isinstance(vehicle_key, dict) else BEV_VEHICLES.get(vehicle_key)
     if v is None:
         return None
     kwh = v.get("battery_kwh")
@@ -616,7 +621,9 @@ def _remaining_life_fraction(v):
 
 def bev_manufacturing_premium_note(vehicle_key, amortise_used=True):
     """Human-readable derivation string for display in the dashboard."""
-    v = BEV_VEHICLES.get(vehicle_key)
+    # Same dict-or-key handling as the premium function above, so a custom EV
+    # gets a real derivation rather than "no battery capacity on record".
+    v = vehicle_key if isinstance(vehicle_key, dict) else BEV_VEHICLES.get(vehicle_key)
     if v is None or not v.get("battery_kwh"):
         return "No battery capacity on record for this vehicle."
     origin = v.get("battery_origin", DEFAULT_BATTERY_ORIGIN)
@@ -692,16 +699,110 @@ def estimated_vehicle_keys():
     return [k for k, v in ALL_VEHICLES.items() if price_is_estimated(v)]
 
 
-def get_ice_dropdown_options():
-    """Return list of dcc.Dropdown options for ICE vehicles."""
-    return [{"label": vehicle_label(k, v), "value": k}
+# ── "My Car": a fully customisable vehicle ────────────────────────
+#
+# Dr Harris asked for a My Car option on every model selector, so a user whose
+# vehicle is not in the list is not stuck with the closest match.
+#
+# Held in the SESSION only, per Andrew's decision. Nothing is written to disk
+# or to browser storage. That is the right default for a dashboard that may end
+# up on a shared UWI machine, where one person's custom car persisting into the
+# next person's session would be both confusing and a small privacy problem.
+#
+# The defaults below are deliberately the MEDIAN of the real dataset rather
+# than zeros or blanks. A user who selects My Car and changes only the price
+# still gets a coherent vehicle, and a form of empty boxes invites a set of
+# inputs that silently produce nonsense.
+
+MY_CAR_KEY = "my-car"
+
+
+def _median(values):
+    vals = sorted(v for v in values if v is not None)
+    if not vals:
+        return None
+    mid = len(vals) // 2
+    return vals[mid] if len(vals) % 2 else (vals[mid - 1] + vals[mid]) / 2
+
+
+def my_car_defaults(kind):
+    """
+    Starting values for a custom vehicle. kind is "ice" or "bev".
+
+    Derived from the real dataset at import time, so if the vehicle list grows
+    the defaults follow it instead of going stale.
+    """
+    src = ICE_VEHICLES if kind == "ice" else BEV_VEHICLES
+    rows = list(src.values())
+    base = {
+        "label": "My Car",
+        "make": "", "model": "", "variant": "",
+        "condition": "used",
+        "year": CURRENT_YEAR - 3,
+        "price_jmd": _median(r.get("price_jmd") for r in rows),
+        "price_verified": False,
+        "price_source": "Entered by the user. Not verified against any dealer.",
+        "consumption_per_100km": _median(r.get("consumption_per_100km") for r in rows),
+        "seats": 5,
+        "annual_maintenance_jmd": _median(r.get("annual_maintenance_jmd") for r in rows),
+        "depreciation_y1": _median(r.get("depreciation_y1") for r in rows),
+        "depreciation_subsequent": _median(r.get("depreciation_subsequent") for r in rows),
+        "notes": "Custom vehicle entered by the user for this session only.",
+        "is_custom": True,
+    }
+    if kind == "ice":
+        base.update({
+            "consumption_basis": "combined",
+            "engine_cc": 1500,
+            "transmission": "Automatic",
+        })
+    else:
+        base.update({
+            "battery_kwh": _median(r.get("battery_kwh") for r in rows),
+            "battery_origin": DEFAULT_BATTERY_ORIGIN,
+            "range_km_nedc": _median(r.get("range_km_nedc") for r in rows),
+            "range_km_realworld": _median(r.get("range_km_realworld") for r in rows),
+        })
+    return base
+
+
+def resolve_vehicle(key, kind, custom=None):
+    """
+    Look up a vehicle, honouring a session custom vehicle.
+
+    Every module should go through this rather than indexing ICE_VEHICLES or
+    BEV_VEHICLES directly, otherwise My Car works in one module and raises a
+    KeyError in the next.
+
+    `custom` is the dict held in the session store. Missing or blank fields
+    fall back to the defaults, so a half-filled form still computes.
+    """
+    if key != MY_CAR_KEY:
+        return (ICE_VEHICLES if kind == "ice" else BEV_VEHICLES).get(key)
+
+    v = my_car_defaults(kind)
+    for field, value in (custom or {}).items():
+        if value is not None and value != "":
+            v[field] = value
+    return v
+
+
+def get_ice_dropdown_options(include_custom=True):
+    """dcc.Dropdown options for ICE vehicles, with My Car last."""
+    opts = [{"label": vehicle_label(k, v), "value": k}
             for k, v in ICE_VEHICLES.items()]
+    if include_custom:
+        opts.append({"label": "My Car (enter your own)", "value": MY_CAR_KEY})
+    return opts
 
 
-def get_bev_dropdown_options():
-    """Return list of dcc.Dropdown options for BEV vehicles."""
-    return [{"label": vehicle_label(k, v), "value": k}
+def get_bev_dropdown_options(include_custom=True):
+    """dcc.Dropdown options for BEV vehicles, with My Car last."""
+    opts = [{"label": vehicle_label(k, v), "value": k}
             for k, v in BEV_VEHICLES.items()]
+    if include_custom:
+        opts.append({"label": "My Car (enter your own)", "value": MY_CAR_KEY})
+    return opts
 
 
 def get_vehicle(key):
