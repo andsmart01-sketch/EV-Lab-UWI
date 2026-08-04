@@ -57,6 +57,27 @@ p, li {
   text-align: justify;
   hyphens: auto;
   -webkit-hyphens: auto;
+
+  /* Feedback item 7: descriptions ran the full width of the screen.
+     Typographic research puts comfortable reading at roughly 45 to 75
+     characters per line. Beyond that the eye loses its place on the return
+     sweep to the next line, which is why newspapers use columns rather than
+     running text across the page.
+
+     The unit is ch, which is the width of a "0" in the current font, so this
+     stays correct if the base font size changes again. 78ch is the outer end
+     of comfortable, chosen because much of this text is dense and shortening
+     it further would make some sections very tall.
+
+     max-width only bites when the container is WIDER than the limit, so text
+     already inside a narrow card or a table cell is untouched. */
+  max-width: 78ch;
+}
+
+/* Text inside table cells should fill its column. The cell is already the
+   constraint, and a second limit inside it just creates ragged space. */
+td p, th p, td li, th li {
+  max-width: none;
 }
 
 /* Opt-out for anywhere justification is wrong. */

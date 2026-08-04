@@ -2559,13 +2559,32 @@ def calculate_module1(ice_price, ice_consumption, ev_price, ev_consumption,
                   html.P(f"J${cost_km_ice:.2f}", style={**big, "color": "#C55A11"})], style=rc),
         html.Div([html.P("EV energy cost/km", style=tiny),
                   html.P(f"J${cost_km_ev:.2f}", style={**big, "color": "#1A7A6E"})], style=rc),
-        html.Div([html.P("Annual savings", style=tiny),
+        # Feedback item 9. This was labelled "Annual savings", which reads as
+        # the total saving from switching. It is not. It is fuel against
+        # electricity only, and excludes maintenance, depreciation and
+        # financing, all three of which are in the chart below and can move the
+        # answer substantially. The label now says which quantity it is and the
+        # caption says what it leaves out.
+        html.Div([html.P("Annual running-cost saving", style=tiny),
                   html.P(
                       f"J${savings:,.0f}" if savings >= 0 else f"-J${abs(savings):,.0f}",
                       style={**big, "color": "#2E75B6" if savings >= 0 else "#C00000"}
-                  )], style=rc),
+                  ),
+                  html.P("fuel vs electricity only",
+                         style={**tiny, "fontSize": "12px", "color": "#8A9E97"})
+                  ], style=rc),
     ], style={"display": "flex", "gap": "8px", "flexWrap": "wrap",
               "marginTop": "12px", "marginBottom": "4px"})
+
+    savings_caveat = html.P(
+        f"The saving above compares fuel with electricity over "
+        f"{annual_km:,.0f} km a year. It excludes maintenance, depreciation "
+        f"and any financing. The total cost of ownership chart below includes "
+        f"maintenance and depreciation, which is why the two figures differ.",
+        style={"fontSize": "13px", "color": "#5B7A70", "lineHeight": "1.5",
+               "margin": "6px 0 0 0"},
+    )
+    summary_cards = html.Div([summary_cards, savings_caveat])
 
     if not ev_price:
         return summary_cards, empty_fig, hide_chart, show_ph
