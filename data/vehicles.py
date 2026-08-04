@@ -19,6 +19,10 @@
 #                     brake fluid, tyres, and annual inspection only.
 #   Depreciation    : Estimated rates based on Jamaican used car market observations.
 #                     ICE: 18% year 1, 12% subsequent. BEV: 22% year 1, 12% subsequent.
+#   Manufacturing   : BEV manufacturing CO2 is NOT stored as a hardcoded per-model
+#                     total. It is derived from battery capacity and the battery
+#                     supply-chain carbon intensity reported in Bieker (2021).
+#                     See the MANUFACTURING CO2 section at the bottom of this file.
 #
 # NOTE: All prices flagged with price_verified=False require confirmation before
 # use in formal analysis. Replace with confirmed dealer quotes when available.
@@ -47,6 +51,7 @@ ICE_VEHICLES = {
         "price_verified": True,
         "price_source": "Toyota Jamaica (toyotajamaica.com, June 2026)",
         "consumption_per_100km": 7.0,
+        "consumption_basis": "combined",
         "engine_cc": 1500,
         "transmission": "Automatic",
         "seats": 5,
@@ -64,6 +69,7 @@ ICE_VEHICLES = {
         "price_verified": True,
         "price_source": "Toyota Jamaica (toyotajamaica.com, June 2026)",
         "consumption_per_100km": 7.5,
+        "consumption_basis": "combined",
         "engine_cc": 1000,
         "transmission": "Automatic",
         "seats": 5,
@@ -81,6 +87,7 @@ ICE_VEHICLES = {
         "price_verified": True,
         "price_source": "Toyota Jamaica (toyotajamaica.com, June 2026)",
         "consumption_per_100km": 8.0,
+        "consumption_basis": "combined",
         "engine_cc": 1500,
         "transmission": "Automatic",
         "seats": 5,
@@ -98,6 +105,7 @@ ICE_VEHICLES = {
         "price_verified": True,
         "price_source": "Toyota Jamaica (toyotajamaica.com, June 2026)",
         "consumption_per_100km": 10.5,
+        "consumption_basis": "combined",
         "engine_cc": 2500,
         "transmission": "Automatic",
         "seats": 5,
@@ -118,6 +126,7 @@ ICE_VEHICLES = {
         "price_source": "Jamaicars.com / SBT Japan Jamaica asking prices, June 2026. "
                         "Range: J$3.1M-J$5M. Midpoint used.",
         "consumption_per_100km": 7.5,
+        "consumption_basis": "combined",
         "engine_cc": 1800,
         "transmission": "Automatic",
         "seats": 5,
@@ -138,6 +147,7 @@ ICE_VEHICLES = {
         "price_source": "Jacars.net asking prices, June 2026. "
                         "Range: J$2.5M-J$3.5M. Midpoint used.",
         "consumption_per_100km": 6.5,
+        "consumption_basis": "combined",
         "engine_cc": 1500,
         "transmission": "Automatic",
         "seats": 5,
@@ -155,6 +165,7 @@ ICE_VEHICLES = {
         "price_verified": False,
         "price_source": "Jacars.net asking price, June 2026. Single listing at J$10.9M.",
         "consumption_per_100km": 8.5,
+        "consumption_basis": "combined",
         "engine_cc": 1500,
         "transmission": "Automatic",
         "seats": 5,
@@ -174,6 +185,7 @@ ICE_VEHICLES = {
         "price_source": "Jacars.net asking prices, June 2026. "
                         "Range: J$1.5M-J$2.3M. Midpoint used.",
         "consumption_per_100km": 6.0,
+        "consumption_basis": "combined",
         "engine_cc": 1200,
         "transmission": "Automatic",
         "seats": 5,
@@ -192,6 +204,7 @@ ICE_VEHICLES = {
         "price_source": "Estimated from Jamaican used car market. "
                         "Range: J$1.5M-J$2.5M. Midpoint used.",
         "consumption_per_100km": 7.0,
+        "consumption_basis": "combined",
         "engine_cc": 1600,
         "transmission": "Automatic",
         "seats": 5,
@@ -199,6 +212,66 @@ ICE_VEHICLES = {
         "depreciation_y1": 0.12,
         "depreciation_subsequent": 0.10,
         "notes": "Widely used as taxi (route taxi) in Jamaica. Relevant for fleet module."
+    },
+
+    "toyota-probox-used": {
+        "label": "Toyota Probox 1.5L Van (Used, 2015-2019)",
+        "make": "Toyota", "model": "Probox", "variant": "1.5L Commercial Van",
+        "condition": "used", "year": 2017,
+        "price_jmd": 1650000,
+        "price_verified": False,
+        "price_source": "Jacars.net asking prices, June-July 2026. "
+                        "Range: J$0.85M-J$2.35M. Midpoint used.",
+        "consumption_per_100km": 7.6,
+        "consumption_basis": "combined",
+        # Urban-duty figure retained for Module 6, where every vehicle is on an
+        # urban basis. Module 1 uses the combined figure because every other ICE
+        # entry in this table is combined-basis. Mixing the two would make the
+        # 1.5L Probox appear thirstier than a 2.5L RAV4, which is not real.
+        "consumption_urban_per_100km": 10.7,
+        "engine_cc": 1500,
+        "transmission": "Automatic",
+        "seats": 5,
+        "annual_maintenance_jmd": 120000,
+        "depreciation_y1": 0.12,
+        "depreciation_subsequent": 0.10,
+        "notes": "Workhorse commercial van, very widely used as a route taxi and for "
+                 "small business delivery in Jamaica. Consumption from inCarDoc user "
+                 "data for the 1NZ-FE 1.5L: 7.6 L/100km combined, 10.7 L/100km urban. "
+                 "Price is an asking price, not a confirmed sale."
+    },
+
+    "toyota-probox-late": {
+        "label": "Toyota Probox 1.5L Van (Late-model import, 2022-2024)",
+        "make": "Toyota", "model": "Probox", "variant": "1.5L Commercial Van",
+        # "new" here means effectively new: low mileage, recent model year.
+        # Toyota Jamaica does NOT list the Probox in its franchise-new lineup,
+        # so no dealer-new price exists to quote. Every Probox in Jamaica is an
+        # import; this entry is the fresh end of that market, the used entry is
+        # the older end. Flagged as "new" so it picks up newer-vehicle loan
+        # terms in Module 4 rather than used-vehicle terms.
+        "condition": "new", "year": 2023,
+        "price_jmd": 2300000,
+        "price_verified": False,
+        "price_source": "Jacars.net and JamaiCars.com asking prices, July 2026. "
+                        "Observed range across 2014-2022 units J$0.85M-J$2.30M; "
+                        "the top of that range is used here for a late-model unit. "
+                        "Asking price, not a confirmed sale.",
+        "consumption_per_100km": 7.6,
+        "consumption_basis": "combined",
+        "consumption_urban_per_100km": 10.7,
+        "engine_cc": 1500,
+        "transmission": "Automatic",
+        "seats": 5,
+        "annual_maintenance_jmd": 85000,
+        "depreciation_y1": 0.16,
+        "depreciation_subsequent": 0.11,
+        "notes": "Fresh import counterpart to the used Probox, for testing whether "
+                 "buying a newer petrol taxi beats buying an EV. Consumption is the "
+                 "same inCarDoc figure as the used entry because no separate "
+                 "measurement was found for the later model. Maintenance and "
+                 "depreciation are ESTIMATES reflecting a younger vehicle, not "
+                 "sourced figures."
     },
 
     "toyota-hilux-used": {
@@ -210,6 +283,7 @@ ICE_VEHICLES = {
         "price_source": "Jacars.net asking prices, June 2026. "
                         "Range: J$5.25M-J$5.4M. Midpoint used.",
         "consumption_per_100km": 11.5,
+        "consumption_basis": "combined",
         "engine_cc": 2400,
         "transmission": "Automatic",
         "seats": 5,
@@ -244,7 +318,7 @@ BEV_VEHICLES = {
         "annual_maintenance_jmd": 40000,
         "depreciation_y1": 0.22,
         "depreciation_subsequent": 0.12,
-        "manufacturing_co2_tonnes": 8.1,
+        "battery_origin": "china",
         "notes": "Entry-level BYD SUV. Available in Jamaica. "
                  "BYD sold approximately 85 vehicles in Jamaica in 2024 "
                  "(Jamaica Observer, Jan 2025)."
@@ -265,7 +339,7 @@ BEV_VEHICLES = {
         "annual_maintenance_jmd": 40000,
         "depreciation_y1": 0.22,
         "depreciation_subsequent": 0.12,
-        "manufacturing_co2_tonnes": 9.0,
+        "battery_origin": "china",
         "notes": "Mid-range BYD compact SUV. Larger battery than Yuan Pro."
     },
 
@@ -284,7 +358,7 @@ BEV_VEHICLES = {
         "annual_maintenance_jmd": 40000,
         "depreciation_y1": 0.22,
         "depreciation_subsequent": 0.12,
-        "manufacturing_co2_tonnes": 10.8,
+        "battery_origin": "china",
         "notes": "BYD flagship sedan. Longest range in BYD Jamaica lineup."
     },
 
@@ -303,22 +377,30 @@ BEV_VEHICLES = {
         "annual_maintenance_jmd": 45000,
         "depreciation_y1": 0.22,
         "depreciation_subsequent": 0.12,
-        "manufacturing_co2_tonnes": 14.9,
+        "battery_origin": "china",
         "notes": "AWD dual motor SUV. Higher consumption due to AWD drivetrain."
     },
 
     "byd-atto8-new": {
-        "label": "BYD Atto 8 2027 (new)",
+        "label": "BYD Atto 8 (New, 2027)",
+        "make": "BYD", "model": "Atto 8", "variant": "Large SUV",
+        "condition": "new", "year": 2027,
         "price_jmd": 15_347_904,
         "price_verified": True,
         "price_source": "ATL Automotive, USD$97,088, July 2026",
         "consumption_per_100km": 20.0,
-        "range_km_nedc": 400,
         "battery_kwh": 90.0,
+        "range_km_nedc": 400,
+        "range_km_realworld": 300,
+        "seats": 7,
+        "annual_maintenance_jmd": 80_000,
         "depreciation_y1": 0.20,
         "depreciation_subsequent": 0.12,
-        "annual_maintenance_jmd": 80_000,
-        "notes": "Price USD$97,088 confirmed ATL Automotive (atlautomotive.com, July 2026), converted at J$158/USD. Consumption is an estimate pending field data.",
+        "battery_origin": "china",
+        "notes": "Price USD$97,088 confirmed ATL Automotive (atlautomotive.com, July 2026), "
+                 "converted at J$158/USD. Consumption 20.0 kWh/100km and real-world range "
+                 "300km are UNVERIFIED estimates pending field data. Seat count assumed 7 "
+                 "for a large SUV and not confirmed with ATL.",
     },
 
     # ── USED BEV ────────────────────────────────────────────────────────────────
@@ -339,7 +421,7 @@ BEV_VEHICLES = {
         "annual_maintenance_jmd": 35000,
         "depreciation_y1": 0.12,
         "depreciation_subsequent": 0.10,
-        "manufacturing_co2_tonnes": 7.2,
+        "battery_origin": "japan",
         "notes": "Most commonly available EV in Jamaica. Popular used import. "
                  "Real-world range significantly lower in Jamaican heat with AC. "
                  "Battery degradation a consideration for older units."
@@ -361,7 +443,7 @@ BEV_VEHICLES = {
         "annual_maintenance_jmd": 38000,
         "depreciation_y1": 0.12,
         "depreciation_subsequent": 0.10,
-        "manufacturing_co2_tonnes": 11.5,
+        "battery_origin": "korea",
         "notes": "Longer range than Nissan Leaf. Better suited for inter-parish travel."
     },
 
@@ -381,7 +463,7 @@ BEV_VEHICLES = {
         "annual_maintenance_jmd": 38000,
         "depreciation_y1": 0.12,
         "depreciation_subsequent": 0.10,
-        "manufacturing_co2_tonnes": 11.5,
+        "battery_origin": "korea",
         "notes": "Distinctive boxy styling. Good range for Jamaican inter-parish routes."
     },
 
@@ -401,11 +483,156 @@ BEV_VEHICLES = {
         "annual_maintenance_jmd": 50000,
         "depreciation_y1": 0.12,
         "depreciation_subsequent": 0.10,
-        "manufacturing_co2_tonnes": 10.8,
-        "notes": "Premium EV. No Tesla service centre in Jamaica as of June 2026 -- "
+        "battery_origin": "china",
+        "notes": "Premium EV. Right-hand-drive Model 3 is built at Giga Shanghai, so the "
+                 "China battery supply-chain intensity is applied. "
+                 "No Tesla service centre in Jamaica as of June 2026 -- "
                  "maintenance and parts availability is a practical concern for buyers."
     },
 }
+
+
+# ── MANUFACTURING CO2 ───────────────────────────────────────────────────────────
+#
+# WHY THIS IS DERIVED RATHER THAN HARDCODED
+#
+# Two conflicting hardcoded sets previously existed in this project: a
+# `manufacturing_co2_tonnes` field here (Yuan Pro 8.1, Yuan Plus 9.0, Seal 10.8,
+# Sealion 7 14.9, Leaf 7.2, Kona 11.5, Soul 11.5, Model 3 10.8) and a
+# `BEV_MANUFACTURING_CO2_PREMIUM` dict in app.py (7.2, 8.1, 9.5, 12.4, 5.8, 9.0,
+# 9.0, 8.8). Neither was traceable to a source. The app.py set was labelled
+# "premium above an equivalent ICE car" but its values are roughly 2.2 to 2.4
+# times the battery production emissions implied by any published figure, which
+# means they were cradle-to-gate vehicle TOTALS (battery plus body plus
+# drivetrain), not premiums. Using a total where a premium belongs roughly
+# doubles the BEV carbon debt and roughly doubles the carbon payback period.
+#
+# THE METHOD USED INSTEAD
+#
+# Carbon payback needs the DIFFERENCE in manufacturing emissions between a BEV
+# and the ICE car it replaces, not the BEV total. Under the standard simplifying
+# assumption that the body shell ("glider") of a BEV and an equivalent ICE car
+# carry the same production emissions, and that the electric motor and inverter
+# roughly offset the engine, gearbox, exhaust and fuel system they replace, the
+# difference collapses to the battery pack. So:
+#
+#     manufacturing premium (tonnes) = battery_kwh * intensity / 1000
+#
+# This has three advantages over a hardcoded table: every number is reproducible
+# from a published intensity, it updates automatically when battery capacity is
+# corrected, and it does not require a Jamaica-specific ICE manufacturing figure
+# that does not exist.
+#
+# LIMITATION TO STATE IN THE REPORT
+#
+# The glider-parity assumption is a simplification. BEVs are typically heavier
+# and use more aluminium, so the true premium is somewhat above the battery-only
+# figure. Treat these values as a lower bound on the manufacturing premium.
+#
+# SOURCE
+#
+# Bieker, G. (2021). A global comparison of the life-cycle greenhouse gas
+# emissions of combustion engine and electric passenger cars. ICCT.
+# https://theicct.org/publication/a-global-comparison-of-the-life-cycle-greenhouse-gas-emissions-of-combustion-engine-and-electric-passenger-cars/
+# The study assumes 60 kg CO2e/kWh for battery production in Europe and the
+# United States and 68 kg CO2e/kWh in China and India.
+
+BATTERY_PRODUCTION_CO2_KG_PER_KWH = {
+    "china":  68,   # Bieker (2021), China supply chain
+    "india":  68,   # Bieker (2021), India supply chain
+    "europe": 60,   # Bieker (2021), EU supply chain
+    "us":     60,   # Bieker (2021), US supply chain
+    # Bieker (2021) does not cover Japan or Korea. Both have grid carbon
+    # intensities between the EU and China, and both are mature manufacturing
+    # bases. The EU/US figure is applied as the nearest published analogue.
+    # ASSUMPTION, not a sourced value. Flag in the report.
+    "japan":  60,
+    "korea":  60,
+}
+
+DEFAULT_BATTERY_ORIGIN = "china"
+
+# USED BEVs AND SUNK MANUFACTURING EMISSIONS
+#
+# A 2019 Nissan Leaf imported into Jamaica in 2026 did not cause its battery to
+# be manufactured in 2026. Those emissions were incurred years earlier for the
+# first owner. Charging the full premium to the second owner overstates the
+# carbon payback of exactly the vehicles most Jamaicans can actually afford,
+# since used imports are the realistic entry point into EV ownership here.
+#
+# The premium is therefore amortised over assumed vehicle life: a buyer is
+# charged the share of the battery debt corresponding to the service life still
+# ahead of the vehicle. New vehicles carry the full premium.
+#
+#     factor = max(life - age, 1) / life
+#
+# Bieker (2021) assumes an average passenger car useful lifetime of 15 to 18
+# years. The conservative end of that range is used here, which charges used
+# buyers MORE than the upper end would.
+
+ASSUMED_VEHICLE_LIFE_YEARS = 15
+CURRENT_YEAR = 2026
+
+
+def bev_manufacturing_premium_tonnes(vehicle_key, amortise_used=True):
+    """
+    Tonnes of CO2e of BEV manufacturing emissions in excess of an equivalent
+    ICE car, approximated by battery pack production emissions.
+
+    If amortise_used is True (default), the premium charged to a used vehicle
+    is scaled by its remaining share of assumed service life. Pass
+    amortise_used=False for the full cradle-to-gate battery premium, which is
+    the correct quantity for fleet-level accounting where the vehicle is being
+    newly manufactured somewhere in the world.
+
+    Returns None if the vehicle is not a BEV or has no battery capacity on
+    record, so callers must handle the missing case explicitly rather than
+    silently falling back to a made-up default.
+    """
+    v = BEV_VEHICLES.get(vehicle_key)
+    if v is None:
+        return None
+    kwh = v.get("battery_kwh")
+    if not kwh:
+        return None
+    origin = v.get("battery_origin", DEFAULT_BATTERY_ORIGIN)
+    intensity = BATTERY_PRODUCTION_CO2_KG_PER_KWH.get(
+        origin, BATTERY_PRODUCTION_CO2_KG_PER_KWH[DEFAULT_BATTERY_ORIGIN]
+    )
+    full = kwh * intensity / 1000.0
+    if amortise_used:
+        full *= _remaining_life_fraction(v)
+    return full
+
+
+def _remaining_life_fraction(v):
+    """Share of assumed service life still ahead of this vehicle. 1.0 if new."""
+    if v.get("condition") != "used":
+        return 1.0
+    age = max(CURRENT_YEAR - v.get("year", CURRENT_YEAR), 0)
+    remaining = max(ASSUMED_VEHICLE_LIFE_YEARS - age, 1)
+    return remaining / ASSUMED_VEHICLE_LIFE_YEARS
+
+
+def bev_manufacturing_premium_note(vehicle_key, amortise_used=True):
+    """Human-readable derivation string for display in the dashboard."""
+    v = BEV_VEHICLES.get(vehicle_key)
+    if v is None or not v.get("battery_kwh"):
+        return "No battery capacity on record for this vehicle."
+    origin = v.get("battery_origin", DEFAULT_BATTERY_ORIGIN)
+    intensity = BATTERY_PRODUCTION_CO2_KG_PER_KWH.get(
+        origin, BATTERY_PRODUCTION_CO2_KG_PER_KWH[DEFAULT_BATTERY_ORIGIN]
+    )
+    full = v["battery_kwh"] * intensity / 1000.0
+    base = (f"{v['battery_kwh']:.2f} kWh x {intensity} kg CO2e/kWh "
+            f"({origin} supply chain) = {full:.2f} t")
+    frac = _remaining_life_fraction(v)
+    if amortise_used and frac < 1.0:
+        age = CURRENT_YEAR - v["year"]
+        base += (f", amortised to {full * frac:.2f} t for a {age}-year-old vehicle "
+                 f"with {ASSUMED_VEHICLE_LIFE_YEARS - age} of "
+                 f"{ASSUMED_VEHICLE_LIFE_YEARS} years of service life remaining")
+    return base + ". Bieker (2021), ICCT."
 
 
 # ── COMBINED LOOKUP ─────────────────────────────────────────────────────────────
