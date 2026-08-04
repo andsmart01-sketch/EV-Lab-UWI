@@ -724,6 +724,11 @@ def _build_taxi_vehicles():
             "range_km_realistic": TAXI_RANGE_OVERRIDE.get(key,
                                                           src.get("range_km_realworld")),
             "annual_maintenance_jmd": src["annual_maintenance_jmd"],
+            # Needed for the resale value at the end of the ownership period.
+            # Without it the model treated the vehicle as worthless on the last
+            # day, which is wrong for both types and unequally wrong.
+            "depreciation_y1": src["depreciation_y1"],
+            "depreciation_subsequent": src["depreciation_subsequent"],
             "loan_defaults": TAXI_LOAN_DEFAULTS[(vtype, condition)],
             "colour": TAXI_PALETTE[i % len(TAXI_PALETTE)],
             "symbol": TAXI_SYMBOLS[i % len(TAXI_SYMBOLS)],
@@ -3922,6 +3927,39 @@ def update_tab3_chart(fuel_price):
     return fig
 
 
+
+def residual_value(price, dep_y1, dep_sub, years):
+    """
+    What the vehicle is worth after `years` of ownership.
+
+    Same declining-balance formula the private TCO module uses, so a vehicle
+    is not worth two different things in two parts of the same dashboard.
+    """
+    if not price or years <= 0:
+        return price or 0.0
+    return price * (1 - dep_y1) * (1 - dep_sub) ** (years - 1)
+
+
+def outstanding_balance(principal, annual_rate_pct, term_years, years_paid):
+    """
+    Loan still owed after `years_paid` years of payments.
+
+    This matters because selling before the loan is finished does not hand the
+    operator the full sale price. Omitting it would have made an early sale
+    look better than it is, and would have favoured whichever vehicle carried
+    the larger loan, which is normally the EV.
+    """
+    if not term_years or years_paid >= term_years:
+        return 0.0
+    r = (annual_rate_pct / 100) / 12
+    n = int(term_years * 12)
+    k = int(min(years_paid, term_years) * 12)
+    if r <= 0:
+        return principal * (1 - k / n) if n else 0.0
+    # Standard amortisation: balance after k payments.
+    return principal * ((1 + r) ** n - (1 + r) ** k) / ((1 + r) ** n - 1)
+
+
 @app.callback(
     Output("m6-income-fig",        "figure"),
     Output("m6-income-fig",        "style"),
@@ -4071,6 +4109,9 @@ def calculate_module6(
             "consumption_source": v["consumption_source"],
             "notes": v["notes"],
             "loan_term_years": lt,
+            "depreciation_y1": v["depreciation_y1"],
+            "depreciation_subsequent": v["depreciation_subsequent"],
+            "annual_rate_pct": lr,
         }
 
     if not results:
@@ -4087,10 +4128,17 @@ def calculate_module6(
     big  = {"fontSize": "22px", "fontWeight": "700", "margin": "4px 0"}
     tiny = {"fontSize": "15px", "color": "#777", "margin": "0"}
 
+    hold_years = int(ownership_years) if ownership_years else 5
+
     vehicle_rows = []
     for key in ordered:
         r = results[key]
         annual_net = revenue_per_year - (r["annual_energy_cost"] + r["annual_maintenance"] + r["annual_loan_payment"])
+        card_resale = residual_value(r["price"], r["depreciation_y1"],
+                                     r["depreciation_subsequent"], hold_years)
+        card_owed = outstanding_balance(r["price"] - r["downpayment"],
+                                        r["annual_rate_pct"], r["loan_term_years"],
+                                        hold_years)
         net_color  = "#1A9E75" if annual_net > 0 else "#C0392B"
         type_color = r["colour"]
         vehicle_rows.append(html.Div([
@@ -4111,6 +4159,12 @@ def calculate_module6(
                 html.Div([html.P("Net annual income", style=tiny),
                           html.P(f"J${annual_net:,.0f}" if annual_net >= 0 else f"-J${abs(annual_net):,.0f}",
                                  style={**big, "color": net_color})], style=card),
+                html.Div([html.P(f"Resale after {hold_years}y", style=tiny),
+                          html.P(f"J${card_resale - card_owed:,.0f}",
+                                 style={**big, "color": "#7B3FA0"}),
+                          html.P(f"J${card_resale:,.0f} value"
+                                 + (f" less J${card_owed:,.0f} still owed" if card_owed > 1 else ""),
+                                 style={**tiny, "fontSize": "12px"})], style=card),
             ], style={"display": "flex", "gap": "8px", "flexWrap": "wrap", "marginBottom": "10px"}),
         ], style={"backgroundColor": "#fff", "border": "1px solid #e0e0e0",
                   "borderRadius": "6px", "padding": "12px 16px", "marginBottom": "8px"}))
@@ -4121,6 +4175,15 @@ def calculate_module6(
             f"{trips_per_day:.0f} trips/day  ·  "
             f"{km_per_year:,.0f} km/yr  ·  {charging_note}",
             style={"fontSize": "15px", "color": "#555", "marginBottom": "10px"},
+        ),
+        html.P(
+            f"Cumulative income includes the vehicle's resale value at the end "
+            f"of year {hold_years}, less any loan still outstanding. Earlier "
+            f"versions of this module stopped at cash flow and treated the "
+            f"vehicle as worthless on the last day, which understated every "
+            f"option and understated the more expensive ones most.",
+            style={"fontSize": "13px", "color": "#5B7A70", "marginBottom": "10px",
+                   "lineHeight": "1.5"},
         ),
         *vehicle_rows,
     ])
@@ -4145,6 +4208,20 @@ def calculate_module6(
                 annual_cost += r["annual_loan_payment"]
             running += revenue_per_year - annual_cost
             cumulative_net.append(running)
+
+        # The operator still owns a vehicle on the last day. Treating it as
+        # worthless understated every vehicle, and understated them unequally:
+        # the EV costs more up front, so more capital was sunk and written off.
+        # Selling settles any loan still outstanding.
+        resale = residual_value(r["price"], r["depreciation_y1"],
+                                r["depreciation_subsequent"], years)
+        owed = outstanding_balance(r["price"] - r["downpayment"],
+                                   r["annual_rate_pct"], lt, years)
+        r["resale_value"] = resale
+        r["outstanding_loan"] = owed
+        r["terminal_value"] = resale - owed
+        cumulative_net[-1] += resale - owed
+
         trajectories[key] = cumulative_net
         fig.add_trace(go.Scatter(
             x=year_list, y=[v / 1_000_000 for v in cumulative_net],
