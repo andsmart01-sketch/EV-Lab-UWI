@@ -1397,97 +1397,124 @@ GRID_SCENARIOS = {
     },
 }
 
-# Slider bounds for grid carbon intensity. Neither end is arbitrary.
+# ── Grid: renewable share drives carbon intensity ─────────────────
 #
-# CEILING 0.55. This is approximately Jamaica's grid with NO renewables at all,
-# at the thermal efficiency the IRP scenarios imply. Back out the fossil-only
-# intensity from each published scenario, dividing grid intensity by the
-# non-renewable share:
+# The slider is in PERCENT RENEWABLE, 0 to 100, not in kg CO2 per kWh.
 #
-#     2022 actual  0.474 / (1 - 0.115) = 0.536 kg/kWh
-#     IRP 2026     0.380 / (1 - 0.267) = 0.518 kg/kWh
-#     IRP 2030     0.275 / (1 - 0.498) = 0.548 kg/kWh
+# It used to be intensity, which was wrong for two reasons. It was unreadable:
+# marks like "0.380 IRP 2026" and "0.474 2022 actual" sat close enough together
+# to collide. And it was the wrong quantity to ask a person about. Nobody has
+# an intuition for 0.38 kg CO2 per kWh, but everybody has one for "half the
+# electricity comes from renewables". Renewable share is also the number the
+# IRP itself sets targets in.
 #
-# All three agree at roughly 0.52 to 0.55, which is the physical ceiling: you
-# cannot do worse than burning only fossil fuel in the plant you already have.
+# CONVERSION. Intensity is interpolated through the published anchor points, so
+# the three scenarios reproduce EXACTLY at their marks rather than approximately:
 #
-# That figure is also a useful check on the IRP numbers themselves. 0.54 sits
-# well below pure heavy fuel oil at about 0.75 kg/kWh, which is what you would
-# expect given Bogue and Old Harbour run on LNG. The scenarios are internally
-# coherent.
+#     0%     0.536 kg/kWh   derived, see below
+#     11.5%  0.474 kg/kWh   measured, 2022
+#     26.7%  0.380 kg/kWh   IRP projection, 2026
+#     49.8%  0.275 kg/kWh   IRP target, 2030
+#     100%   0.000 kg/kWh   definitional
 #
-# Going higher would mean modelling a shift back toward HFO. Jamaica is not
-# heading there, and a slider that reaches it invites a comparison nobody
-# needs.
+# The 0% anchor is Jamaica's grid with no renewables at all, obtained by
+# dividing each published scenario by its non-renewable share:
 #
-# FLOOR 0.0, a fully decarbonised grid.
+#     0.474 / (1 - 0.115) = 0.536
+#     0.380 / (1 - 0.267) = 0.518
+#     0.275 / (1 - 0.498) = 0.548
 #
-# This was originally 0.10, on the reasoning that Jamaica has no route to a
-# zero-carbon grid by 2030 and the slider should not invite a figure the
-# country cannot reach. That was wrong, for two reasons.
+# All three agree at roughly 0.52 to 0.55, so 0.536 is used. That figure is
+# also a check on the IRP numbers: it sits well below pure heavy fuel oil at
+# about 0.75 kg/kWh, which is what you would expect given Bogue and Old Harbour
+# run on LNG. The scenarios are internally coherent.
 #
-# First, a bounding case is not a forecast. The question "what would an EV emit
-# if the electricity were completely clean" is a legitimate sensitivity, and
-# the answer is the most instructive result this module produces: emissions do
-# NOT fall to zero, because the battery manufacturing debt is unaffected by how
-# the electricity is generated. Blocking zero hid that.
-#
-# Second, it is not hypothetical regionally. Uruguay and Costa Rica, both in
-# the Module 2 comparison, already run grids close enough to zero that this is
-# their situation rather than a thought experiment.
-GRID_INTENSITY_MIN = 0.0
-GRID_INTENSITY_MAX = 0.55
+# A straight line between anchors is an approximation. Real grid intensity
+# depends on which plant is displaced, not just on how much renewable capacity
+# exists. Between anchors this is an interpolation, not a projection, and the
+# note under the slider says so.
 
-# The published scenarios become marks on the slider. They stay one click away
-# while everything between them becomes reachable.
+GRID_RE_MIN = 0
+GRID_RE_MAX = 100
+
+# (renewable %, kg CO2 per kWh). Must stay sorted.
+GRID_RE_ANCHORS = [
+    (0.0,   0.536),
+    (11.5,  0.474),
+    (26.7,  0.380),
+    (49.8,  0.275),
+    (100.0, 0.000),
+]
+
 GRID_SLIDER_MARKS = {
-    0.0: {"label": "0\n100% renewable", "style": {"whiteSpace": "pre-line",
-                                                  "fontSize": "11px"}},
-    0.275: {"label": "0.275\nIRP 2030", "style": {"whiteSpace": "pre-line",
-                                                  "fontSize": "11px"}},
-    0.380: {"label": "0.380\nIRP 2026", "style": {"whiteSpace": "pre-line",
-                                                  "fontSize": "11px"}},
-    0.474: {"label": "0.474\n2022 actual", "style": {"whiteSpace": "pre-line",
-                                                     "fontSize": "11px"}},
-    0.55: {"label": "0.55"},
+    0:  {"label": "0%",   "style": {"fontSize": "12px"}},
+    12: {"label": "11.5%\n2022 actual",
+         "style": {"whiteSpace": "pre-line", "fontSize": "11px"}},
+    27: {"label": "26.7%\nIRP 2026",
+         "style": {"whiteSpace": "pre-line", "fontSize": "11px"}},
+    50: {"label": "49.8%\nIRP 2030",
+         "style": {"whiteSpace": "pre-line", "fontSize": "11px"}},
+    100: {"label": "100%", "style": {"fontSize": "12px"}},
 }
 
+DEFAULT_RE_PCT = 26.7   # IRP 2026, the present-day projection
 
-def describe_grid_intensity(value):
-    """
-    Plain-language note for a slider position, naming the nearest scenario.
 
-    Without this the slider is a bare number. The point of the marks is that
-    0.380 means something specific, and a reader who drags to 0.42 should be
-    told they are now between the 2022 measurement and the 2026 target rather
-    than left to work it out.
+def renewable_pct_to_intensity(re_pct):
     """
-    if value is None:
+    Grid carbon intensity for a given renewable share.
+
+    Piecewise linear through GRID_RE_ANCHORS, so each published scenario
+    reproduces exactly at its own point rather than approximately. A single
+    fixed fossil intensity would have been simpler but would have missed the
+    IRP 2026 figure by 0.013 and the 2030 figure by 0.006.
+    """
+    if re_pct is None:
+        return None
+    x = max(GRID_RE_MIN, min(GRID_RE_MAX, float(re_pct)))
+    for (x0, y0), (x1, y1) in zip(GRID_RE_ANCHORS, GRID_RE_ANCHORS[1:]):
+        if x0 <= x <= x1:
+            if x1 == x0:
+                return y0
+            return y0 + (x - x0) * (y1 - y0) / (x1 - x0)
+    return GRID_RE_ANCHORS[-1][1]
+
+
+def describe_grid_intensity(re_pct):
+    """
+    Plain-language note for a slider position.
+
+    Always states the resulting intensity, because that is the number doing the
+    work in the calculation even though it is not the number being set.
+    """
+    if re_pct is None:
         return ""
+    intensity = renewable_pct_to_intensity(re_pct)
+    head = f"{re_pct:.1f}% renewable gives {intensity:.3f} kg CO2 per kWh. "
 
-    # The clean end is the most instructive position on the scale, so it gets
-    # an explanation rather than being described as "cleaner than IRP 2030".
-    if value <= 0.005:
-        return ("Fully decarbonised grid, the equivalent of 100% renewable "
-                "generation. Jamaica has no published route to this by 2030, "
-                "so treat it as a bounding case rather than a forecast. Note "
-                "that EV emissions do not fall to zero here: the battery "
-                "manufacturing debt is unchanged by how the electricity is "
-                "made. Uruguay and Costa Rica already operate close to this.")
+    if re_pct >= 99.5:
+        return (head + "A fully decarbonised grid. Jamaica has no published "
+                "route to this by 2030, so treat it as a bounding case rather "
+                "than a forecast. Note that EV emissions do not fall to zero "
+                "here: the battery manufacturing debt is unchanged by how the "
+                "electricity is made. Uruguay and Costa Rica already operate "
+                "close to this.")
+    if re_pct <= 0.5:
+        return (head + "Jamaica's grid with no renewable generation at all. "
+                "Derived from the published scenarios rather than measured, "
+                "and included as the dirty bound.")
 
-    nearest_key = min(
-        GRID_SCENARIOS,
-        key=lambda k: abs(GRID_SCENARIOS[k]["intensity_kg_per_kwh"] - value),
-    )
+    nearest_key = min(GRID_SCENARIOS,
+                      key=lambda k: abs(GRID_SCENARIOS[k]["re_pct"] - re_pct))
     nearest = GRID_SCENARIOS[nearest_key]
-    delta = abs(nearest["intensity_kg_per_kwh"] - value)
-    if delta < 0.003:
-        return (f"{nearest['label']}. Renewables {nearest['re_pct']}%. "
-                f"Source: Jamaica Integrated Resource Plan.")
-    direction = "cleaner than" if value < nearest["intensity_kg_per_kwh"] else "dirtier than"
-    return (f"Custom value. This is {delta:.3f} kg/kWh {direction} the nearest "
-            f"published scenario, {nearest['label']}. Custom values are your "
-            f"own assumption and are not from the Integrated Resource Plan.")
+    delta = abs(nearest["re_pct"] - re_pct)
+    if delta < 0.6:
+        return head + f"{nearest['label']} Source: Jamaica Integrated Resource Plan."
+    direction = "more" if re_pct > nearest["re_pct"] else "less"
+    return (head + f"Your own assumption, {delta:.1f} percentage points {direction} "
+            f"renewable than the nearest published scenario ({nearest['label']}). "
+            f"Intensity between published points is interpolated, so this is an "
+            f"estimate rather than an IRP projection.")
 
 
 CO2_PER_LITRE_PETROL = 2.31   # kg CO2/litre, 90 octane combustion
@@ -2125,10 +2152,10 @@ def m5_update_ev(model_key):
 
 @app.callback(
     Output("m5-grid-note", "children"),
-    Input("m5-grid-intensity", "value"),
+    Input("m5-grid-re-pct", "value"),
 )
-def describe_m5_grid(value):
-    return describe_grid_intensity(value)
+def describe_m5_grid(re_pct):
+    return describe_grid_intensity(re_pct)
 
 
 @app.callback(
@@ -2140,10 +2167,10 @@ def describe_m5_grid(value):
     Input("m5-ev-consumption", "value"),
     Input("m5-daily-km", "value"),
     Input("m5-years", "value"),
-    Input("m5-grid-intensity", "value"),
+    Input("m5-grid-re-pct", "value"),
 )
 def calculate_module5(ice_key, ice_consumption, ev_key, ev_consumption,
-                      daily_km, years, grid_intensity):
+                      daily_km, years, grid_re_pct):
     empty_fig = go.Figure()
     empty_fig.update_layout(
         plot_bgcolor="#ffffff", paper_bgcolor="#ffffff",
@@ -2153,16 +2180,15 @@ def calculate_module5(ice_key, ice_consumption, ev_key, ev_consumption,
                       "showarrow": False, "font": {"size": 16, "color": "#aaa"}}],
     )
     if not all([ice_consumption, ev_consumption, daily_km, years]) \
-            or grid_intensity is None:
+            or grid_re_pct is None:
         return (html.P("Enter all inputs to see results.",
                        style={"color": "#888", "fontSize": "16px"}),
                 empty_fig)
 
     years = int(years)
-    # The slider hands us the intensity directly, so there is no scenario key
-    # to look up. Any value on the scale is valid, including ones between the
-    # published scenarios.
-    intensity = float(grid_intensity)
+    # The slider is in percent renewable, which is what a person can reason
+    # about. Convert to carbon intensity, which is what the arithmetic needs.
+    intensity = renewable_pct_to_intensity(grid_re_pct)
     annual_km = daily_km * 365.0
 
     annual_co2_ice = (ice_consumption / 100) * annual_km * CO2_PER_LITRE_PETROL
@@ -2629,18 +2655,21 @@ def module5_layout():
             # now reachable. That matters because the IRP figures are targets,
             # not measurements, and a reader who thinks 2030 will be missed
             # should be able to say so and see the consequence.
-            html.Label("Grid carbon intensity (kg CO2 per kWh)", style=lbl),
-            dcc.Slider(
-                id="m5-grid-intensity",
-                min=GRID_INTENSITY_MIN, max=GRID_INTENSITY_MAX, step=0.005,
-                value=GRID_SCENARIOS[d_grid]["intensity_kg_per_kwh"],
+            html.Label("Share of electricity from renewables", style=lbl),
+            html.Div(dcc.Slider(
+                id="m5-grid-re-pct",
+                min=GRID_RE_MIN, max=GRID_RE_MAX, step=0.5,
+                value=DEFAULT_RE_PCT,
                 marks=GRID_SLIDER_MARKS,
-                tooltip={"placement": "bottom", "always_visible": True},
-                included=False,
-            ),
+                # always_visible put a permanent bubble on the track that
+                # collided with the marks. On hover and drag only is enough,
+                # because the note underneath always states the current value.
+                tooltip={"placement": "top", "always_visible": False},
+                included=True,
+            ), style={"padding": "0 10px"}),
             html.Div(id="m5-grid-note", style={
                 "fontSize": "13px", "color": "#5B7A70",
-                "marginTop": "26px", "marginBottom": "6px", "lineHeight": "1.5",
+                "marginTop": "34px", "marginBottom": "6px", "lineHeight": "1.5",
             }),
         ], style=det_style),
 
