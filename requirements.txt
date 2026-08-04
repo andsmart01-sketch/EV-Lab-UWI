@@ -1,0 +1,24 @@
+# Jamaica EV Dashboard - Python dependencies
+# Install with:  pip install -r requirements.txt
+
+# Dashboard
+dash>=2.14
+plotly>=5.18
+pandas>=2.0
+numpy>=1.24
+
+# Reading the fuel price workbook
+openpyxl>=3.1
+
+# Weekly price updater (scripts/update_weekly.py)
+requests>=2.31
+beautifulsoup4>=4.12
+
+# Optional. lxml is a faster HTML parser but needs a compiled wheel and
+# sometimes fails to install on Windows. The parser falls back to Python's
+# built-in html.parser if it is missing, so this is a nice-to-have.
+lxml>=5.0
+
+# Optional. Only used as a fallback if the Petrojam price table ever stops
+# appearing in the raw HTML response. Not needed for normal operation.
+# playwright>=1.40

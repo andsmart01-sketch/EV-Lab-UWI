@@ -1,29 +1,28 @@
-# Python
-__pycache__/
-*.py[cod]
-*.pyo
-.env
-venv/
-env/
-.venv/
-*.egg-info/
-
-# Raw data files
-*.xlsx
-*.xls
-*.docx
-*.zip
-
-# Streamlit secrets
-.streamlit/secrets.toml
-
-# Survey CSVs (kept local for anonymity)
-data/surveys/*.csv
-
-# OS
-.DS_Store
-Thumbs.db
 
 # IDE
-.vscode/
+# OS
+# Python
+# Raw data files
+# Streamlit secrets
+# Survey CSVs (kept local for anonymity)
+*.docx
+*.egg-info/
+*.py[cod]
+*.pyo
+*.xls
+*.xlsx
+*.zip
+.DS_Store
+.env
 .idea/
+.streamlit/secrets.toml
+.venv/
+.vscode/
+Thumbs.db
+__pycache__/
+data/.http_cache/
+data/raw/*.backup-*.xlsx
+data/surveys/*.csv
+env/
+logs/
+venv/

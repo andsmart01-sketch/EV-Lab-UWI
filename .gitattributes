@@ -1,0 +1,41 @@
+# Normalise line endings so Windows checkouts stop producing phantom diffs.
+#
+# Without this, git stored whatever line endings your editor happened to write,
+# and files nobody had touched showed as thousands of changed lines. Roughly
+# 3,700 lines of the working tree were phantom CRLF diff before this file
+# existed. `* text=auto` tells git to store LF in the repository and check out
+# whatever the platform expects, so the noise stops.
+
+* text=auto
+
+# Explicit for the file types this project actually contains.
+*.py    text diff=python
+*.md    text
+*.txt   text
+*.csv   text
+*.json  text
+*.html  text
+*.css   text
+*.js    text
+*.yml   text
+*.yaml  text
+
+# Batch files must keep CRLF or older Windows shells can misparse them.
+*.bat   text eol=crlf
+*.cmd   text eol=crlf
+
+# Binary. Never diff, never touch line endings. Marking these also stops git
+# from reporting a 30,000 line "change" when a spreadsheet is resaved.
+*.xlsx  binary
+*.xlsm  binary
+*.xls   binary
+*.docx  binary
+*.pptx  binary
+*.potx  binary
+*.pdf   binary
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.svg   binary
+*.ico   binary
