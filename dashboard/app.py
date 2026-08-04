@@ -1420,17 +1420,29 @@ GRID_SCENARIOS = {
 # heading there, and a slider that reaches it invites a comparison nobody
 # needs.
 #
-# FLOOR 0.10, not zero. A grid can approach zero carbon, but Jamaica's cannot
-# by 2030 on any published pathway, and a slider reaching zero would invite an
-# EV emissions figure the country has no route to. 0.10 sits below the 2030
-# target with room to spare.
-GRID_INTENSITY_MIN = 0.10
+# FLOOR 0.0, a fully decarbonised grid.
+#
+# This was originally 0.10, on the reasoning that Jamaica has no route to a
+# zero-carbon grid by 2030 and the slider should not invite a figure the
+# country cannot reach. That was wrong, for two reasons.
+#
+# First, a bounding case is not a forecast. The question "what would an EV emit
+# if the electricity were completely clean" is a legitimate sensitivity, and
+# the answer is the most instructive result this module produces: emissions do
+# NOT fall to zero, because the battery manufacturing debt is unaffected by how
+# the electricity is generated. Blocking zero hid that.
+#
+# Second, it is not hypothetical regionally. Uruguay and Costa Rica, both in
+# the Module 2 comparison, already run grids close enough to zero that this is
+# their situation rather than a thought experiment.
+GRID_INTENSITY_MIN = 0.0
 GRID_INTENSITY_MAX = 0.55
 
 # The published scenarios become marks on the slider. They stay one click away
 # while everything between them becomes reachable.
 GRID_SLIDER_MARKS = {
-    0.10: {"label": "0.10"},
+    0.0: {"label": "0\n100% renewable", "style": {"whiteSpace": "pre-line",
+                                                  "fontSize": "11px"}},
     0.275: {"label": "0.275\nIRP 2030", "style": {"whiteSpace": "pre-line",
                                                   "fontSize": "11px"}},
     0.380: {"label": "0.380\nIRP 2026", "style": {"whiteSpace": "pre-line",
@@ -1452,6 +1464,17 @@ def describe_grid_intensity(value):
     """
     if value is None:
         return ""
+
+    # The clean end is the most instructive position on the scale, so it gets
+    # an explanation rather than being described as "cleaner than IRP 2030".
+    if value <= 0.005:
+        return ("Fully decarbonised grid, the equivalent of 100% renewable "
+                "generation. Jamaica has no published route to this by 2030, "
+                "so treat it as a bounding case rather than a forecast. Note "
+                "that EV emissions do not fall to zero here: the battery "
+                "manufacturing debt is unchanged by how the electricity is "
+                "made. Uruguay and Costa Rica already operate close to this.")
+
     nearest_key = min(
         GRID_SCENARIOS,
         key=lambda k: abs(GRID_SCENARIOS[k]["intensity_kg_per_kwh"] - value),
