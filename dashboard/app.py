@@ -93,6 +93,54 @@ _BOTTOM_PAD_PX   = 17
 
 _ROTATED_TICK_PX = 42    # extra clearance when x tick labels are angled
 _CHAR_PX         = 8.9   # approx px per character of a rotated axis title
+
+# Axis furniture. Dark enough to read as a real axis, light enough not to
+# compete with the data. Gridlines sit well below both.
+_AXIS_LINE_COLOUR = "#5B7A70"
+_AXIS_LINE_WIDTH  = 1.5
+_GRID_COLOUR      = "#EDF3F1"
+
+# ── Series colours ────────────────────────────────────────────────
+#
+# Dr Harris flagged that blue and green look too similar on the charts. He is
+# right, and the audit shows why: the two most used series colours in the whole
+# dashboard were #2E75B6 (blue, hue 209) and #1A7A6E (teal, hue 172). Teal
+# reads as green, and at line width 2 on a white background the pair is genuinely
+# hard to separate, more so for the roughly 8% of men with red-green colour
+# vision deficiency, for whom the distinction is carried almost entirely by
+# lightness.
+#
+# THE RULE: never put "blue" and "green"/"teal" in the same chart. Reach for
+# purple, amber or red as the second series instead. Blue against orange is the
+# safest pair available and is used wherever there are only two series.
+#
+# The two identity colours are fixed and must not be reassigned, because they
+# mean the same thing on every chart in the dashboard:
+#     ICE  = orange
+#     EV   = green
+SERIES_COLOURS = {
+    "ice":    "#C55A11",   # orange, ICE everywhere
+    "ev":     "#1A9E75",   # green, EV everywhere
+    "blue":   "#2E75B6",
+    "purple": "#7B3FA0",
+    "amber":  "#E0A106",
+    "red":    "#C0392B",
+    "navy":   "#1F3864",
+    "brown":  "#8B4513",
+    "teal":   "#1A7A6E",   # safe only when no blue is present in the chart
+    "grey":   "#8A9E97",
+}
+
+# Ordered fallback for charts with several series. Deliberately alternates hue
+# families so that adjacent entries never sit in the blue/green trap.
+SERIES_CYCLE = [
+    SERIES_COLOURS["blue"], SERIES_COLOURS["orange"] if "orange" in SERIES_COLOURS
+    else SERIES_COLOURS["ice"], SERIES_COLOURS["purple"], SERIES_COLOURS["ev"],
+    SERIES_COLOURS["amber"], SERIES_COLOURS["red"], SERIES_COLOURS["navy"],
+    SERIES_COLOURS["brown"],
+]
+SERIES_COLOURS["orange"] = SERIES_COLOURS["ice"]
+SERIES_COLOURS["green"]  = SERIES_COLOURS["ev"]
 _MIN_PLOT_PX     = 160
 
 
@@ -137,13 +185,46 @@ def chart_layout(title, height, xtitle=None, ytitle=None, y2title=None,
     height = max(height, int(_TITLE_BAND_PX + bottom + needed_plot))
     plot_height = height - _TITLE_BAND_PX - bottom
 
+    # Rule 3: every chart shows a visible x and y axis line.
+    #
+    # Plotly draws no axis line by default. On a white background with no
+    # gridlines that leaves a bar chart floating with nothing to sit on, which
+    # is what Dr Harris saw in the Module 2 country comparison. Setting this
+    # here rather than per chart means it cannot be forgotten on the next one.
+    #
+    # zeroline is switched OFF deliberately. Plotly's zero line is drawn INSIDE
+    # the plot at y=0, so on a chart whose axis starts at zero you get two
+    # lines a pixel apart, and on a chart with negative values you get a stray
+    # line through the middle that reads as an axis but is not one.
+    axis_line = dict(
+        showline=True,
+        linecolor=_AXIS_LINE_COLOUR,
+        linewidth=_AXIS_LINE_WIDTH,
+        ticks="outside",
+        tickcolor=_AXIS_LINE_COLOUR,
+        ticklen=5,
+        zeroline=False,
+        showgrid=True,
+        gridcolor=_GRID_COLOUR,
+        gridwidth=1,
+    )
+
+    x_axis = dict(axis_line, tickangle=tickangle)
+    if xtitle:
+        x_axis["title"] = xtitle
+    # Vertical gridlines add clutter on categorical axes and rarely help.
+    x_axis["showgrid"] = False
+
+    y_axis = dict(axis_line)
+    if ytitle:
+        y_axis["title"] = ytitle
+
     layout = dict(
         # Rule 2: anchor the title to the plot area, not the container.
         title={"text": title, "font": {"size": title_size},
                "x": 0, "xanchor": "left", "xref": "paper"},
-        xaxis=dict(title=xtitle, tickangle=tickangle) if xtitle
-              else dict(tickangle=tickangle),
-        yaxis=dict(title=ytitle) if ytitle else dict(),
+        xaxis=x_axis,
+        yaxis=y_axis,
         plot_bgcolor="#ffffff",
         paper_bgcolor="#ffffff",
         hovermode="x unified",
@@ -152,8 +233,10 @@ def chart_layout(title, height, xtitle=None, ytitle=None, y2title=None,
         showlegend=show_legend,
     )
     if y2title:
-        layout["yaxis2"] = dict(title=y2title, overlaying="y",
-                                side="right", showgrid=False)
+        layout["yaxis2"] = dict(
+            axis_line, title=y2title, overlaying="y", side="right",
+            showgrid=False,
+        )
     if show_legend:
         # Solve the fraction from the pixel clearance we actually want.
         layout["legend"] = dict(
@@ -1339,6 +1422,89 @@ CO2_PER_LITRE_DIESEL = 2.68   # kg CO2/litre, automotive diesel
 # See that file for the method, its glider-parity assumption, and the citation.
 
 
+# Fields a country needs before it can appear on every chart in this module.
+REGIONAL_FIELDS = [
+    ("ev_sales_share_pct",       "BEV sales share"),
+    ("ev_fleet_total",           "EV fleet total"),
+    ("charging_stations",        "charging stations"),
+    ("import_duty_ev_pct",       "EV import duty"),
+    ("fuel_price_usd_per_litre", "retail fuel price"),
+]
+
+
+def regional_data_gaps(row):
+    """Which of the comparison fields this country has no figure for."""
+    return [label for key, label in REGIONAL_FIELDS if row.get(key) is None]
+
+
+def build_regional_footnotes():
+    """
+    Per-country note on what data exists and what does not.
+
+    Dr Harris asked for footnotes saying whether each country has data
+    available. This is worth more than a tidy chart, because the gaps are the
+    finding: only 5 of the 19 countries here have a complete set, and 14 are
+    missing at least one field. A reader who sees Chile absent from a chart
+    should be able to learn that it is absent because no figure was obtainable,
+    not because Chile has no EVs.
+
+    Countries are grouped by how complete they are rather than alphabetically,
+    so the pattern is visible at a glance.
+    """
+    complete, partial, none_at_all = [], [], []
+    for r in sorted(REGIONAL_DATA, key=lambda x: x["country"]):
+        gaps = regional_data_gaps(r)
+        if not gaps:
+            complete.append((r, gaps))
+        elif len(gaps) == len(REGIONAL_FIELDS):
+            none_at_all.append((r, gaps))
+        else:
+            partial.append((r, gaps))
+
+    note = {"fontSize": "14px", "color": "#5B7A70", "margin": "0 0 6px 0",
+            "textAlign": "justify", "lineHeight": "1.5"}
+
+    def block(title, items, describe):
+        if not items:
+            return None
+        lines = []
+        for r, gaps in items:
+            yr = r.get("source_year")
+            lines.append(html.Li([
+                html.B(r["country"]),
+                f"  (data year {yr}). " if yr else ". ",
+                describe(gaps),
+            ], style=note))
+        return html.Div([
+            html.Div(f"{title} ({len(items)})", style={
+                "fontWeight": "700", "fontSize": "15px",
+                "color": "#0E2A24", "marginTop": "10px", "marginBottom": "4px"}),
+            html.Ul(lines, style={"marginTop": "0", "paddingLeft": "20px"}),
+        ])
+
+    return html.Div([
+        html.Div("Data availability by country", style={
+            "backgroundColor": "#E1F5EE", "color": "#0E2A24",
+            "fontWeight": "700", "fontSize": "18px", "padding": "10px 18px",
+            "marginBottom": "10px", "marginTop": "20px", "borderRadius": "2px"}),
+        html.P(
+            "Figures come from different years and different national sources, "
+            "so a country missing from a chart is missing because no figure "
+            "could be obtained, not because the value is zero. Comparisons "
+            "across countries should be read with the data year in mind.",
+            style={**note, "marginBottom": "10px"},
+        ),
+        block("Complete data", complete,
+              lambda g: "All five comparison fields available."),
+        block("Partial data", partial,
+              lambda g: f"No figure obtained for: {', '.join(g)}."),
+        block("No comparison data", none_at_all,
+              lambda g: ("Listed for regional context only. No figure was "
+                         "obtained for any comparison field, so this country "
+                         "does not appear on the charts above.")),
+    ])
+
+
 def module8_layout():
     import pandas as pd
 
@@ -1348,10 +1514,13 @@ def module8_layout():
     df_bar = df[df["ev_sales_share_pct"].notna()].sort_values(
         "ev_sales_share_pct", ascending=True
     )
+    # Jamaica was blue and the rest of the Caribbean teal, the same blue/green
+    # pairing as the scatter. Jamaica is now orange in both charts, so the eye
+    # finds it in the same colour wherever it appears in this module.
     bar_colors = [
-        "#2E75B6" if c == "Jamaica" else
-        "#1A7A6E" if r == "Caribbean" else
-        "#AAAAAA"
+        SERIES_COLOURS["ice"] if c == "Jamaica" else
+        SERIES_COLOURS["blue"] if r == "Caribbean" else
+        SERIES_COLOURS["grey"]
         for c, r in zip(df_bar["country"], df_bar["region"])
     ]
     fig_bar = go.Figure()
@@ -1372,11 +1541,22 @@ def module8_layout():
         annotation_font_color="#C0392B",
         annotation_font_size=11,
     )
+    # "most recent year" told the reader nothing. The figures come from
+    # different years per country, which matters when comparing them, so the
+    # actual span is stated and each bar carries its own year on hover.
+    bar_years = sorted({r["source_year"] for r in REGIONAL_DATA
+                        if r["ev_sales_share_pct"] is not None and r.get("source_year")})
+    year_span = (f"{bar_years[0]}" if len(bar_years) == 1
+                 else f"{bar_years[0]} to {bar_years[-1]}")
     fig_bar.update_layout(**chart_layout(
-        "BEV New Car Sales Share by Country (%, most recent year)",
+        f"BEV New Car Sales Share by Country (%, data years {year_span})",
         height=340, xtitle="BEV New Car Sales Share (%)",
         show_legend=False, left=120, right=80,
     ))
+    fig_bar.update_traces(
+        customdata=df_bar["source_year"],
+        hovertemplate="%{y}: %{x:.1f}% (data year %{customdata})<extra></extra>",
+    )
     fig_bar.update_xaxes(range=[0, 40], ticksuffix="%")
 
     # ── Chart 2: Scatter plot fuel price vs EV adoption ──────────────
@@ -1398,7 +1578,13 @@ def module8_layout():
         x=df_others["fuel_price_usd_per_litre"],
         y=df_others["ev_sales_share_pct"],
         mode="markers+text",
-        marker=dict(color="#1A7A6E", size=14),
+        # Was teal #1A7A6E against Jamaica's blue #2E75B6. Blue and teal are
+        # the pairing Dr Harris flagged, and here they carried the single most
+        # important distinction on the chart: which point is Jamaica. The
+        # comparison countries are now muted blue and Jamaica is orange, the
+        # strongest separation available and one that survives greyscale
+        # printing because the two also differ in lightness.
+        marker=dict(color=SERIES_COLOURS["blue"], size=14, opacity=0.75),
         text=df_others["country"],
         textposition="top center",
         textfont=dict(size=14),
@@ -1408,10 +1594,11 @@ def module8_layout():
         x=df_jamaica["fuel_price_usd_per_litre"],
         y=df_jamaica["ev_sales_share_pct"],
         mode="markers+text",
-        marker=dict(color="#2E75B6", size=16, line=dict(color="#0E2A24", width=1.5)),
+        marker=dict(color=SERIES_COLOURS["ice"], size=18,
+                    line=dict(color="#0E2A24", width=2), symbol="diamond"),
         text=df_jamaica["country"],
         textposition="top center",
-        textfont=dict(size=14, color="#2E75B6"),
+        textfont=dict(size=15, color=SERIES_COLOURS["ice"]),
         name="Jamaica",
     ))
 
@@ -1522,12 +1709,15 @@ def module8_layout():
             "identical pump price, yet Bahamian BEV share is roughly four times Jamaica's. "
             "Whatever separates them is not the price of fuel. That single pair is stronger "
             "evidence than the trend line.",
-            style={"fontSize": "16px", "color": "#444",
+            style={"fontSize": "16px", "color": "#444", "textAlign": "justify",
+                   "lineHeight": "1.5",
                    "marginTop": "8px", "marginBottom": "20px"}
         ),
 
         html.Div("Regional Comparison Summary Table", style=banner),
         table,
+
+        build_regional_footnotes(),
     ], style={"padding": "4px"})
 
 
@@ -3304,9 +3494,13 @@ def update_tab3_chart(fuel_price):
         title="Petrojam Weekly Pump Prices — Jamaica (J$/litre)",
         labels={"value": "Price (J$/litre)", "variable": "Fuel Type"},
         color_discrete_map={
-            "Gasolene 87":  "#2E75B6",
-            "Gasolene 90":  "#1A7A6E",
-            "Auto Diesel":  "#C55A11",
+            # Was blue #2E75B6 against teal #1A7A6E, which is the blue/green
+            # pairing Dr Harris flagged as hard to tell apart. Purple replaces
+            # the teal: it separates cleanly from both the blue and the orange,
+            # including for the most common forms of colour blindness.
+            "Gasolene 87":  SERIES_COLOURS["blue"],
+            "Gasolene 90":  SERIES_COLOURS["purple"],
+            "Auto Diesel":  SERIES_COLOURS["orange"],
         }
     )
     if fuel_price is not None:
@@ -3317,13 +3511,21 @@ def update_tab3_chart(fuel_price):
             annotation_text=f"Current input: J${fuel_price}",
             annotation_position="top left"
         )
+    latest = fuel_df["Date"].max()
+    earliest = fuel_df["Date"].min()
     fig.update_layout(
-        plot_bgcolor="#ffffff",
-        paper_bgcolor="#ffffff",
+        **chart_layout(
+            f"Petrojam Weekly Pump Prices, Jamaica "
+            f"({earliest:%d %b %Y} to {latest:%d %b %Y})",
+            height=430, xtitle="Week", ytitle="Price (J$/litre)",
+            left=80,
+        ),
         legend_title_text="",
-        hovermode="x unified",
-        margin={"t": 50, "b": 40, "l": 60, "r": 20},
     )
+    # Explicit dates rather than Plotly's automatic label thinning, which on a
+    # ten-year weekly series can show bare years and leave the reader unable to
+    # tell which week a point belongs to.
+    fig.update_xaxes(tickformat="%b %Y", hoverformat="%d %b %Y")
     return fig
 
 
@@ -3938,25 +4140,31 @@ def calculate_m4_fleet_emissions(mode, penetration, include_mfg,
     fig.add_trace(go.Scatter(
         x=years, y=[v / 1000 for v in ice_only_co2], mode="lines+markers",
         name="100% ICE fleet (baseline)",
-        line=dict(color="#C55A11", width=2), marker=dict(size=6),
+        line=dict(color=SERIES_COLOURS["ice"], width=2), marker=dict(size=6),
     ))
     fig.add_trace(go.Scatter(
         x=years, y=[v / 1000 for v in mixed_co2], mode="lines+markers",
+        # This chart previously ran teal, blue and a second green together.
+        # The EV line now uses the standard EV green so it matches every other
+        # module, and the two remaining series move to purple and amber, well
+        # clear of both the green and each other.
         name=f"{penetration}% EV fleet",
-        line=dict(color="#1A7A6E", width=2), marker=dict(size=6),
+        line=dict(color=SERIES_COLOURS["ev"], width=2), marker=dict(size=6),
         fill="tonexty", fillcolor="rgba(26,158,117,0.15)",
     ))
     fig.add_trace(go.Scatter(
         x=years, y=[v / 1000 for v in cum_avoided], mode="lines",
         name="Cumulative net avoided (incl. mfg)",
-        line=dict(color="#2E75B6", width=2, dash="dash"),
+        line=dict(color=SERIES_COLOURS["purple"], width=2, dash="dash"),
         yaxis="y2",
     ))
     if payback_year and include_mfg == "yes":
-        fig.add_vline(x=payback_year, line_dash="dot", line_color="#2d8a2d",
+        fig.add_vline(x=payback_year, line_dash="dot",
+                      line_color=SERIES_COLOURS["amber"],
                       annotation_text=f"Battery debt repaid {payback_year}",
                       annotation_position="top left",
-                      annotation_font_color="#2d8a2d", annotation_font_size=10)
+                      annotation_font_color=SERIES_COLOURS["amber"],
+                      annotation_font_size=12)
     # dtick=1 forced all twelve year labels into a narrow panel, which made
     # Plotly angle them. Angled labels are taller than upright ones and pushed
     # the x-axis title down into the legend. Letting Plotly choose the tick
