@@ -1446,15 +1446,23 @@ GRID_RE_ANCHORS = [
     (100.0, 0.000),
 ]
 
+# Mark labels are deliberately short.
+#
+# Two earlier attempts overlapped. The reason is arithmetic, not styling: the
+# 2022 mark sits at 11.5% and the left end at 0%, which on a 320px track is
+# about 37px apart, while a label reading "11.5% 2022 actual" needs roughly 60.
+# No amount of font tuning fixes a label wider than the space it has.
+#
+# So: the 0% end mark is dropped, since the start of a track is self-evident,
+# and each label is cut to a bare year. The percentages are not lost, they are
+# in the tooltip and stated in full in the note underneath. A caption below the
+# slider explains what the years refer to, which is a better place for that
+# text than three repetitions of "IRP" squeezed onto the track.
 GRID_SLIDER_MARKS = {
-    0:  {"label": "0%",   "style": {"fontSize": "12px"}},
-    12: {"label": "11.5%\n2022 actual",
-         "style": {"whiteSpace": "pre-line", "fontSize": "11px"}},
-    27: {"label": "26.7%\nIRP 2026",
-         "style": {"whiteSpace": "pre-line", "fontSize": "11px"}},
-    50: {"label": "49.8%\nIRP 2030",
-         "style": {"whiteSpace": "pre-line", "fontSize": "11px"}},
-    100: {"label": "100%", "style": {"fontSize": "12px"}},
+    12:  {"label": "2022",  "style": {"fontSize": "12px", "whiteSpace": "nowrap"}},
+    27:  {"label": "2026",  "style": {"fontSize": "12px", "whiteSpace": "nowrap"}},
+    50:  {"label": "2030",  "style": {"fontSize": "12px", "whiteSpace": "nowrap"}},
+    100: {"label": "100%",  "style": {"fontSize": "12px", "whiteSpace": "nowrap"}},
 }
 
 DEFAULT_RE_PCT = 26.7   # IRP 2026, the present-day projection
@@ -2661,15 +2669,22 @@ def module5_layout():
                 min=GRID_RE_MIN, max=GRID_RE_MAX, step=0.5,
                 value=DEFAULT_RE_PCT,
                 marks=GRID_SLIDER_MARKS,
-                # always_visible put a permanent bubble on the track that
-                # collided with the marks. On hover and drag only is enough,
-                # because the note underneath always states the current value.
+                # always_visible put a permanent bubble on the track that sat
+                # on top of the marks. Hover and drag only is enough, because
+                # the note underneath always states the current value.
                 tooltip={"placement": "top", "always_visible": False},
                 included=True,
-            ), style={"padding": "0 10px"}),
+            ), style={"padding": "0 14px", "marginTop": "4px"}),
+            html.P(
+                "Marks show Jamaica's 2022 measured mix (11.5%) and the "
+                "Integrated Resource Plan projections for 2026 (26.7%) and "
+                "2030 (49.8%).",
+                style={"fontSize": "12px", "color": "#8A9E97",
+                       "margin": "30px 0 0 0", "lineHeight": "1.45"},
+            ),
             html.Div(id="m5-grid-note", style={
                 "fontSize": "13px", "color": "#5B7A70",
-                "marginTop": "34px", "marginBottom": "6px", "lineHeight": "1.5",
+                "marginTop": "8px", "marginBottom": "6px", "lineHeight": "1.5",
             }),
         ], style=det_style),
 
