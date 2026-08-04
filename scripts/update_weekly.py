@@ -1,28 +1,44 @@
 """
 Weekly data updater for Jamaica EV Dashboard.
-Run every Wednesday after Petrojam publishes new prices.
+
+Run Thursday evening, after Petrojam publishes. Thursday is not a guess: of
+the 602 rows in the price series, 581 are dated on a Thursday, and every row
+from April to June 2026 is.
 
 Usage:
-    python scripts/update_weekly.py
+    python scripts/update_weekly.py            normal weekly run
+    python scripts/update_weekly.py --force    ignore the freshness guard
 
 Requirements:
-    pip install playwright requests
-    playwright install chromium
+    pip install requests beautifulsoup4 lxml pandas openpyxl
+
+Playwright is NOT required. The price table on petrojam.com/price/ is served
+in the HTML, so a plain GET is enough. Playwright is used only as a fallback
+if that table ever disappears from the raw response, and the script degrades
+to a clear message rather than an exception if it is not installed.
 """
 
 import json
 import os
 import sys
 import csv
-import requests
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
+
+# Shared polite HTTP layer: caching, conditional requests, backoff, and an
+# honest User-Agent. See scripts/polite_fetch.py for why this exists.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import polite_fetch
 
 # Paths
 REPO_ROOT   = Path(__file__).resolve().parent.parent
 DATA_DIR    = REPO_ROOT / "data"
 RAW_DIR     = DATA_DIR / "raw"
 CONFIG_FILE = DATA_DIR / "live_config.json"
+# The freshness guard must check the SAME file the dashboard reads, which is
+# the .xlsx in data/raw. The derived .csv lags whenever process_fuel_prices.py
+# has not been rerun, which would cause a needless scrape.
+PRICES_CSV  = DATA_DIR / "processed" / "fuel_prices.csv"   # derived output
 
 def find_csv():
     # Check raw/ subfolder first, then data/ root
@@ -37,235 +53,77 @@ def find_csv():
 # ── 1. Exchange rate ──────────────────────────────────────────────
 
 def fetch_exchange_rate():
+    """
+    Fetched through polite_fetch, so a rerun within 12 hours costs no request
+    at all and a failure falls back to the last good cached copy rather than
+    hammering the endpoint.
+    """
     print("Fetching USD/JMD exchange rate...")
+    body, source = polite_fetch.fetch(
+        "https://open.er-api.com/v6/latest/USD",
+        min_age=timedelta(hours=12),
+    )
+    if body is None:
+        print("  WARNING: Exchange rate unavailable. Using existing value.")
+        return None, None
     try:
-        r = requests.get("https://open.er-api.com/v6/latest/USD", timeout=10)
-        r.raise_for_status()
-        data = r.json()
+        data = json.loads(body)
         rate = data["rates"]["JMD"]
         updated = data["time_last_update_utc"]
-        print(f"  USD/JMD = {rate:.4f}  (as of {updated})")
+        print(f"  USD/JMD = {rate:.4f}  (as of {updated})  [{source}]")
         return rate, updated
     except Exception as e:
-        print(f"  WARNING: Exchange rate fetch failed ({e}). Using existing value.")
+        print(f"  WARNING: Could not parse exchange rate ({e}). Using existing value.")
         return None, None
 
 
 # ── 2. Petrojam scrape ───────────────────────────────────────────
 
-def scrape_petrojam():
-    print("Launching headless browser to scrape Petrojam...")
-    try:
-        from playwright.sync_api import sync_playwright
-    except ImportError:
-        sys.exit(
-            "ERROR: Playwright not installed.\n"
-            "Run: pip install playwright && playwright install chromium"
-        )
+# ── 2. Petrojam prices ───────────────────────────────────────────
+#
+# This used to drive a headless browser to the /price/ listing, follow the
+# first article link to an individual post, and run "Label: value" regexes over
+# the prose on that post. It produced two corrupt rows in July 2026: 87 and 90
+# octane were exactly right, but the dates were 6 to 8 days out and diesel was
+# low by about J$57.50 every week. A regex for "Diesel" over prose can match
+# any of several diesel products, and the date it finds may be a publication
+# date rather than the price week.
+#
+# The work now lives in sync_petrojam.py, which reads the HTML TABLE on
+# /price/ by column header. That removes both failure modes: the header says
+# which number is Auto Diesel, and the date is its own column.
 
-    with sync_playwright() as p:
-        browser = p.chromium.launch(
-            headless=True,
-            args=["--disable-blink-features=AutomationControlled"]
-        )
-        context = browser.new_context(
-            ignore_https_errors=True,
-            user_agent=(
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                "AppleWebKit/537.36 (KHTML, like Gecko) "
-                "Chrome/124.0.0.0 Safari/537.36"
-            ),
-            extra_http_headers={
-                "Accept-Language": "en-US,en;q=0.9",
-                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-            }
-        )
-        page = context.new_page()
-        page.add_init_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
-
-        # Step 1: go to the Prices listing page to find the latest week's URL
-        print("  Finding latest price page...")
-        page.goto("https://www.petrojam.com/price/", timeout=30000)
-        page.wait_for_timeout(3000)
-
-        # Find the first article/post link on the listing page
-        latest_link = None
-        for selector in ["article a", ".entry-title a", "h2 a", "h3 a", ".post a"]:
-            el = page.query_selector(selector)
-            if el:
-                latest_link = el.get_attribute("href")
-                break
-
-        if not latest_link:
-            # Fall back to direct URL pattern — try to find any link containing "petroleum-product-prices"
-            links = page.query_selector_all("a[href*='petroleum-product-prices']")
-            if links:
-                latest_link = links[0].get_attribute("href")
-
-        if not latest_link:
-            browser.close()
-            print("  WARNING: Could not find latest price page link on petrojam.com/price/")
-            return None
-
-        print(f"  Latest price page: {latest_link}")
-
-        # Step 2: navigate to the latest price page
-        page.goto(latest_link, timeout=30000)
-        page.wait_for_timeout(3000)
-        body_text = page.inner_text("body")
-        browser.close()
-
-    # Step 3: parse the page text
-    # Expected format lines like:
-    #   "Date: Wednesday, July 22, 2026"
-    #   "E10 87: 204.4028"
-    #   "E10 90: 213.2687"
-    #   "Auto Diesel: 171.xxxx"  (or similar label)
-    import re
-
-    result = {}
-
-    # Date
-    date_match = re.search(r"Date[:\s]+(\w+ \d+,?\s+\d{4})", body_text)
-    if date_match:
-        result["date"] = date_match.group(1).strip()
-    else:
-        result["date"] = datetime.today().strftime("%B %d, %Y")
-        print("  WARNING: Could not parse date from page. Using today.")
-
-    # G87 pump price — last number on the "E10 87" line
-    g87_match = re.search(r"E10\s*87\s*:\s*([\d.]+)", body_text)
-    if g87_match:
-        result["g87"] = g87_match.group(1)
-    else:
-        print("  WARNING: Could not find E10 87 price.")
-        return None
-
-    # G90 pump price
-    g90_match = re.search(r"E10\s*90\s*:\s*([\d.]+)", body_text)
-    if g90_match:
-        result["g90"] = g90_match.group(1)
-    else:
-        print("  WARNING: Could not find E10 90 price.")
-        return None
-
-    # Diesel pump price — try several label variants
-    diesel_match = re.search(
-        r"(?:Auto Diesel|Diesel|Automotive Diesel)[^:]*:\s*([\d.]+)",
-        body_text, re.IGNORECASE
-    )
-    if diesel_match:
-        result["diesel"] = diesel_match.group(1)
-    else:
-        print("  WARNING: Could not find Diesel price.")
-        return None
-
-    print(f"  Date:    {result['date']}")
-    print(f"  87:      J${result['g87']}/L")
-    print(f"  90:      J${result['g90']}/L")
-    print(f"  Diesel:  J${result['diesel']}/L")
-
-    return [None, None], result  # match expected return shape
-
-
-def parse_petrojam_row(headers, data_row):
+def sync_petrojam_prices(force=False):
     """
-    Map the raw Petrojam columns to our CSV schema:
-    Date, Gasolene 87, Gasolene 90, Auto Diesel
-    Returns a dict or None if parsing fails.
+    Bring the local price series up to date. Returns the newest date now held,
+    or None if nothing changed. Makes zero requests when this week's row is
+    already on file.
     """
-    result = {}
+    import sync_petrojam as sp
 
-    # Flexible column matching
-    col_map = {
-        "date":      ["date", "week", "effective"],
-        "g87":       ["87", "gasolene 87", "super"],
-        "g90":       ["90", "gasolene 90", "premium"],
-        "diesel":    ["diesel", "auto diesel"],
-    }
+    wb = sp.find_workbook()
+    latest = polite_fetch.latest_price_date(wb)
+    print(f"  Workbook: {wb.name}, latest row {latest}")
 
-    for key, aliases in col_map.items():
-        for i, h in enumerate(headers):
-            if any(alias in h.lower() for alias in aliases) and i < len(data_row):
-                result[key] = data_row[i].replace(",", "").strip()
-                break
+    if not force and polite_fetch.already_have_current_week(wb):
+        print("  This week's prices are already on file. "
+              "Skipping entirely (0 requests). Use --force to fetch anyway.")
+        return latest
 
-    if not all(k in result for k in ["date", "g87", "g90", "diesel"]):
-        print(f"  WARNING: Could not map all columns. Got: {result}")
-        return None
+    rows, problems = sp.fetch_price_page(force=force)
+    for prob in problems:
+        print(f"  ! {prob}")
 
-    # Parse date — Petrojam often uses formats like "July 23, 2026" or "23-Jul-26"
-    raw_date = result["date"]
-    for fmt in ["%B %d, %Y", "%d-%b-%y", "%d-%b-%Y", "%Y-%m-%d", "%d/%m/%Y"]:
-        try:
-            parsed = datetime.strptime(raw_date, fmt)
-            result["date_parsed"] = parsed.strftime("%Y-%m-%d")
-            break
-        except ValueError:
-            continue
-    else:
-        # Use today as fallback
-        result["date_parsed"] = datetime.today().strftime("%Y-%m-%d")
-        print(f"  WARNING: Could not parse date '{raw_date}'. Using today's date.")
+    if not rows:
+        print("  No rows parsed, so the series is unchanged.")
+        print("  Manual fallback: https://www.petrojam.com/price/ then")
+        print("                   python scripts/add_prices.py")
+        return latest
 
-    return result
+    print(f"  Parsed {len(rows)} rows from the table, newest {rows[0]['Date']}")
+    added = sp.append_rows(wb, sp.rows_newer_than(rows, latest))
+    return polite_fetch.latest_price_date(wb) if added else latest
 
-
-# ── 3. Append to CSV ─────────────────────────────────────────────
-
-def update_csv(csv_path, parsed):
-    """Append a new row to the xlsx if the date is not already present."""
-    import openpyxl
-    # Support both old and new key names
-    if "date_parsed" in parsed:
-        date_str = parsed["date_parsed"]
-    elif "date" in parsed:
-        raw = parsed["date"]
-        date_str = raw
-        for fmt in ["%B %d, %Y", "%B %d %Y", "%d-%b-%y", "%d-%b-%Y", "%Y-%m-%d"]:
-            try:
-                from datetime import datetime as _dt
-                date_str = _dt.strptime(raw, fmt).strftime("%Y-%m-%d")
-                break
-            except ValueError:
-                continue
-    else:
-        sys.exit("ERROR: parsed dict has no date key")
-
-    wb = openpyxl.load_workbook(csv_path)
-    ws = wb.active
-
-    # Read header row to find column positions
-    headers = [cell.value for cell in ws[1]]
-
-    # Map our keys to column indices (1-based)
-    col_date    = next((i+1 for i, h in enumerate(headers) if h and "date" in str(h).lower()), None)
-    col_g87     = next((i+1 for i, h in enumerate(headers) if h and "87" in str(h)), None)
-    col_g90     = next((i+1 for i, h in enumerate(headers) if h and "90" in str(h)), None)
-    col_diesel  = next((i+1 for i, h in enumerate(headers) if h and "diesel" in str(h).lower()), None)
-
-    if not all([col_date, col_g87, col_g90, col_diesel]):
-        print(f"  WARNING: Could not map all columns. Headers found: {headers}")
-        return False
-
-    # Check for duplicate date
-    for row in ws.iter_rows(min_row=2, values_only=True):
-        existing_date = row[col_date - 1]
-        if existing_date and str(existing_date).strip() == date_str:
-            print(f"  xlsx already has an entry for {date_str}. No new row added.")
-            return False
-
-    # Append new row in correct column order
-    new_row = [""] * len(headers)
-    new_row[col_date   - 1] = date_str
-    new_row[col_g87    - 1] = float(parsed["g87"])
-    new_row[col_g90    - 1] = float(parsed["g90"])
-    new_row[col_diesel - 1] = float(parsed["diesel"])
-
-    ws.append(new_row)
-    wb.save(csv_path)
-    print(f"  Appended row to {csv_path.name}: {date_str} | 87={parsed['g87']} | 90={parsed['g90']} | Diesel={parsed['diesel']}")
-    return True
 
 
 # ── 4. Write live config ─────────────────────────────────────────
@@ -283,7 +141,12 @@ def update_config(rate, rate_updated, petrojam_date):
         config["usd_to_jmd"]         = round(rate, 4)
         config["rate_updated_utc"]   = rate_updated
     if petrojam_date:
-        config["petrojam_last_date"] = petrojam_date
+        # sync_petrojam_prices returns a datetime.date, which json cannot
+        # serialise. Normalise to an ISO string before writing.
+        config["petrojam_last_date"] = (
+            petrojam_date.isoformat()
+            if hasattr(petrojam_date, "isoformat") else str(petrojam_date)
+        )
 
     config["script_last_run"] = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -295,36 +158,22 @@ def update_config(rate, rate_updated, petrojam_date):
 # ── Main ─────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
+    force = "--force" in sys.argv
+
     print("=" * 55)
     print("Jamaica EV Dashboard — Weekly Data Updater")
     print(f"Running at {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}")
     print("=" * 55)
 
+    # Warn once if the scraper is running without a contact address.
+    polite_fetch.warn_if_unattributed()
+
     # Exchange rate
     rate, rate_updated = fetch_exchange_rate()
 
     # Petrojam
-    csv_path = find_csv()
-    print(f"\nFuel price CSV: {csv_path.name}")
-    result = scrape_petrojam()
-    petrojam_date = None
-
-    if result:
-        _, parsed = result
-        if parsed:
-            added = update_csv(csv_path, parsed)
-            petrojam_date = parsed.get("date_parsed") or parsed.get("date")
-            if added:
-                print(f"\nNew Petrojam prices for {petrojam_date}:")
-                print(f"  87-octane:  J${parsed['g87']}/L")
-                print(f"  90-octane:  J${parsed['g90']}/L")
-                print(f"  Diesel:     J${parsed['diesel']}/L")
-        else:
-            print("  Petrojam data could not be parsed. CSV unchanged.")
-    else:
-        print("  Petrojam scrape failed. CSV unchanged.")
-        print("  Manual fallback: visit https://www.petrojam.com/price/")
-        print("  and add a row to", csv_path.name)
+    print("\nPetrojam fuel prices")
+    petrojam_date = sync_petrojam_prices(force=force)
 
     # Config
     print("\nWriting live config...")
