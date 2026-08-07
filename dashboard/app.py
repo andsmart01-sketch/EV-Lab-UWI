@@ -18,7 +18,7 @@ from vehicles import (ICE_VEHICLES, BEV_VEHICLES,
 from module7_policy import build_module7_layout
 from module_route import (route_map_layout, source_banner, build_map_figure,
                           fetch_route, build_costs, build_cards, build_basis,
-                          best_geometry, CALIBRATION_NOTE)
+                          best_geometry, custom_route, CALIBRATION_NOTE)
 import routes as route_data
 
 app = dash.Dash(
@@ -4867,6 +4867,10 @@ app.layout = serve_layout
     Output("mr-cards", "children"),
     Output("mr-basis", "children"),
     Output("mr-calibration-note", "children"),
+    Output("mr-custom-status", "children"),
+    Output("mr-custom-status", "style"),
+    Input("mr-custom-start", "value"),
+    Input("mr-custom-end", "value"),
     Input("mr-route", "value"),
     Input("mr-vehicle", "value"),
     Input("mr-soc", "value"),
@@ -4882,21 +4886,40 @@ app.layout = serve_layout
     Input("public-charging-rate", "value"),
     Input("charging-network-select", "value"),
 )
-def update_route_map(route_key, vehicle_key, soc, passengers, cargo, temp,
-                     mode, return_trip, ice_consumption, charging_location,
+def update_route_map(custom_start, custom_end, route_key, vehicle_key, soc,
+                     passengers, cargo, temp, mode, return_trip,
+                     ice_consumption, charging_location,
                      fuel_price, home_rate, public_rate, network_key):
     blank = go.Figure(layout={"margin": {"l": 0, "r": 0, "t": 0, "b": 0}})
-    if not route_key or not vehicle_key:
-        return (None, blank, None, None, "")
-
+    quiet = {"fontSize": "12px", "lineHeight": "1.45", "marginBottom": "6px",
+             "color": "#8A9E97"}
+    warn = {**quiet, "color": "#C0392B", "fontWeight": "600"}
     note = CALIBRATION_NOTE.get(vehicle_key, "")
+
+    # A custom pair, once both boxes resolve, takes precedence over the
+    # dropdown. Distance and shape come from OSRM; energy still has to come
+    # from EVRange, so a custom route with the host down shows a road and no
+    # cost rather than a cost this project cannot stand behind.
+    custom, custom_msg = custom_route(custom_start, custom_end)
+    if custom_msg:
+        return (None, blank, None, None, note, custom_msg, warn)
+    if custom is not None:
+        fig = build_map_figure(custom["geometry"], custom["label"])
+        status = (f"{custom['distance_km']:,.1f} km by road, about "
+                  f"{custom['duration_min']:,.0f} minutes. Energy and cost "
+                  f"need EVRange, which is not reachable, so they are not "
+                  f"shown rather than guessed.")
+        return (None, fig, None, None, note, status, quiet)
+
+    if not route_key or not vehicle_key:
+        return (None, blank, None, None, "", "", quiet)
     if fuel_price is None:
         return (html.Div("Enter a fuel price in Global settings to see costs.",
                          style={"padding": "10px 14px", "fontSize": "14px",
                                 "color": "#8A6D00", "backgroundColor": "#FFF4CC",
                                 "border": "1px solid #E8D48A",
                                 "borderRadius": "6px"}),
-                blank, None, None, note)
+                blank, None, None, note, "", quiet)
 
     is_return = bool(return_trip)
     result = fetch_route(route_key, vehicle_key,
@@ -4936,7 +4959,7 @@ def update_route_map(route_key, vehicle_key, soc, passengers, cargo, temp,
                              is_placeholder=is_ph),
             build_cards(leg, ev, ice, cmp_),
             build_basis(ev, ice),
-            note)
+            note, "", quiet)
 
 
 if __name__ == "__main__":

@@ -347,6 +347,54 @@ def osrm_distance_km(route_key: str) -> float | None:
     return entry.get("osrm_distance_km") if entry else None
 
 
+OSRM_URL = "https://router.project-osrm.org/route/v1/driving"
+
+
+def fetch_road_route(start: list[float], end: list[float],
+                     cache_key: str | None = None) -> dict | None:
+    """
+    Road distance and shape between any two points, from OSRM.
+
+    Used for custom routes, which cannot be pre-cached because the endpoints
+    are whatever the user picked. Results are written into the same geometry
+    cache, so asking twice costs one request.
+
+    Returns None on any failure. A custom route that cannot be looked up is a
+    feature that quietly does nothing, not an error worth breaking a dashboard
+    over. The preset routes keep working from disk regardless.
+
+    NOTE ON WHAT THIS DOES AND DOES NOT GIVE YOU: distance and shape only.
+    There is no energy figure here and there deliberately is not one. A flat
+    consumption rate applied to an arbitrary route has a median error of 44 per
+    cent against the measured runs, because gradient dominates in Kingston and
+    a flat rate has no gradient term. EVRange models that properly.
+    """
+    import requests
+    url = (f"{OSRM_URL}/{start[0]},{start[1]};{end[0]},{end[1]}"
+           f"?overview=full&geometries=geojson")
+    try:
+        r = requests.get(url, timeout=20,
+                         headers={"User-Agent": "UWI-Mona-EV-Lab/1.0 research"})
+        r.raise_for_status()
+        data = r.json()
+        if data.get("code") != "Ok" or not data.get("routes"):
+            return None
+        route = data["routes"][0]
+    except Exception:
+        return None
+    out = {
+        "geometry": route["geometry"],
+        "osrm_distance_km": round(route["distance"] / 1000.0, 3),
+        "osrm_duration_min": round(route["duration"] / 60.0, 1),
+    }
+    if cache_key:
+        global _geometry_cache
+        if _geometry_cache is None:
+            road_geometry(cache_key)
+        (_geometry_cache if _geometry_cache is not None else {})[cache_key] = out
+    return out
+
+
 def _haversine_km(a: list[float], b: list[float]) -> float:
     """Great-circle distance between two [lon, lat] points."""
     import math

@@ -124,6 +124,38 @@ def route_map_layout():
             html.P(_route_availability_note(),
                    style={"fontSize": "12px", "color": "#8A9E97",
                           "margin": "0 0 12px", "lineHeight": "1.45"}),
+            html.Details([
+                html.Summary("Use my own start and end",
+                             style={"fontSize": "14px", "fontWeight": "600",
+                                    "cursor": "pointer", "color": "#2E75B6"}),
+                html.Div([
+                    html.P("Paste coordinates from Google Maps, either "
+                           "decimal or the degrees form. Right-click a spot "
+                           "and the top line of the menu is what you want.",
+                           style={"fontSize": "12px", "color": "#8A9E97",
+                                  "margin": "10px 0 8px", "lineHeight": "1.45"}),
+                    html.Label("Start", style=lbl),
+                    dcc.Input(id="mr-custom-start", type="text", debounce=True,
+                              placeholder="""17°58'19.3"N 76°47'09.6"W""",
+                              style=inp),
+                    html.Label("End", style=lbl),
+                    dcc.Input(id="mr-custom-end", type="text", debounce=True,
+                              placeholder="18.0118, -76.7983", style=inp),
+                    html.Div(id="mr-custom-status", style={
+                        "fontSize": "12px", "lineHeight": "1.45",
+                        "marginBottom": "6px"}),
+                    html.P(
+                        "A custom route gives you distance and the road "
+                        "shape. It does not give energy or cost unless "
+                        "EVRange is reachable, and that is deliberate: a flat "
+                        "consumption rate is out by 44 per cent at the median "
+                        "against the measured runs, because gradient "
+                        "dominates in Kingston and a flat rate has no "
+                        "gradient term.",
+                        style={"fontSize": "12px", "color": "#8A9E97",
+                               "margin": "0", "lineHeight": "1.45"}),
+                ], style={"marginTop": "10px"}),
+            ], style={"marginBottom": "10px"}),
             dcc.Checklist(
                 id="mr-return-trip",
                 options=[{"label": " Return trip", "value": "yes"}],
@@ -228,6 +260,67 @@ def route_map_layout():
                  style={"display": "flex", "gap": "20px",
                         "alignItems": "flex-start", "flexWrap": "wrap"}),
     ])
+
+
+def parse_point(text: str):
+    """
+    Accept either coordinate form a user is likely to paste, and say plainly
+    what went wrong rather than failing silently.
+
+    Returns (point_or_None, message). A point is [lon, lat] for EVRange.
+    """
+    if not text or not text.strip():
+        return None, ""
+    t = text.strip()
+    try:
+        return route_data.dms(t), ""
+    except ValueError:
+        pass
+    cleaned = t.replace("(", " ").replace(")", " ").replace(",", " ")
+    parts = [p for p in cleaned.split() if p]
+    if len(parts) == 2:
+        try:
+            lat, lon = float(parts[0]), float(parts[1])
+        except ValueError:
+            return None, f"Could not read {t!r} as a coordinate."
+        try:
+            # Google shows latitude first, so that is the order assumed here.
+            return route_data.gmaps(lat, lon), ""
+        except ValueError as e:
+            return None, str(e)
+    return None, (f"Could not read {t!r}. Use either 18.0118, -76.7983 or "
+                  "the degrees form from Google Maps.")
+
+
+def custom_route(start_text: str, end_text: str):
+    """
+    Resolve a user-entered pair into a road route.
+
+    Returns (route_or_None, message). The message is always worth showing:
+    when it fails the user needs to know whether they mistyped a coordinate or
+    the routing service is simply unreachable, because those need different
+    responses from them.
+    """
+    a, msg_a = parse_point(start_text)
+    if msg_a:
+        return None, msg_a
+    b, msg_b = parse_point(end_text)
+    if msg_b:
+        return None, msg_b
+    if a is None or b is None:
+        return None, ""
+    if a == b:
+        return None, "Start and end are the same point."
+    got = route_data.fetch_road_route(a, b)
+    if got is None:
+        return None, ("Could not reach the routing service, so this custom "
+                      "route cannot be drawn. The preset routes are unaffected, "
+                      "they read from disk.")
+    return {"start": a, "end": b,
+            "label": "Custom route",
+            "distance_km": got["osrm_distance_km"],
+            "geometry": got["geometry"],
+            "duration_min": got["osrm_duration_min"]}, ""
 
 
 def best_geometry(route_key: str, api_result: dict):
