@@ -97,6 +97,11 @@ def ice_route_cost(distance_km: float, consumption_l_per_100km: float,
         f"gives {litres:,.2f} litres.",
         f"Fuel at J${pump_price_jmd_per_litre:,.2f}/litre"
         f"{f' ({price_label})' if price_label else ''}.",
+        "The petrol figure is one consumption value applied to the whole "
+        "route, while the electric figure varies with gradient, speed and "
+        "temperature through the EVRange model. On a hilly or congested "
+        "corridor this understates petrol consumption and so understates the "
+        "saving; on a flat highway run it overstates both.",
     ]
     if toll_basis:
         basis.append(toll_basis)

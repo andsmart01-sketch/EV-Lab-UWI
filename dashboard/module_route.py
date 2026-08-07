@@ -165,11 +165,37 @@ def route_map_layout():
         html.Div([
             html.H4("Prices", style={"color": "#C55A11", "marginTop": "0",
                                      "marginBottom": "12px"}),
-            html.P("Charging rate and pump price come from Global settings at "
-                   "the top of the page, so this module agrees with the "
-                   "calculator and the taxi tool.",
+            # The petrol side is a single fixed figure while the electric side
+            # varies with terrain, gradient and speed through EVRange. That
+            # asymmetry is route dependent and cannot be resolved from the data
+            # this project holds, so the number is exposed rather than buried.
+            html.Label("Petrol comparison, L/100km", style=lbl),
+            dcc.Input(id="mr-ice-consumption", type="number", debounce=True,
+                      value=7.6, min=3, max=25, step=0.1, style=inp),
+            html.P("Toyota Probox 1.5L, the route-taxi incumbent. 7.6 combined, "
+                   "10.7 urban, both from inCarDoc user data for the 1NZ-FE. "
+                   "Use the urban figure for a city corridor. Unlike the "
+                   "electric side, this one value applies to the whole route "
+                   "whatever the terrain does.",
+                   style={"fontSize": "12px", "color": "#8A9E97",
+                          "margin": "-8px 0 14px", "lineHeight": "1.45"}),
+            html.Label("Where you charge", style=lbl),
+            dcc.RadioItems(
+                id="mr-charging-location",
+                options=[
+                    {"label": " Home only",   "value": "home"},
+                    {"label": " Public only", "value": "public"},
+                ],
+                value="home",
+                labelStyle={"display": "block", "fontSize": "16px",
+                            "marginBottom": "6px"},
+            ),
+            html.P("Both rates, and the pump price the petrol comparison uses, "
+                   "come from Global settings at the top of the page. That is "
+                   "deliberate: the same trip must not cost different amounts "
+                   "in this module and in the calculator.",
                    style={"fontSize": "13px", "color": "#5B7A70",
-                          "margin": "0", "lineHeight": "1.5"}),
+                          "margin": "10px 0 0", "lineHeight": "1.5"}),
         ], style=det_style),
     ], style={"width": "38%", "minWidth": "300px", "flexShrink": "0"})
 
@@ -247,6 +273,67 @@ def fetch_route(route_key, vehicle_key, *, soc, passengers, cargo, temp,
         currentSocPct=soc, passengerCount=passengers, cargoKg=cargo,
         ambientTempC=temp, drivingMode=mode, returnTrip=bool(return_trip),
     )
+
+
+def _card(title, value, sub, colour):
+    return html.Div([
+        html.P(title, style={"margin": "0 0 4px", "fontSize": "13px",
+                             "color": "#777", "fontWeight": "600",
+                             "textTransform": "uppercase",
+                             "letterSpacing": "0.3px"}),
+        html.P(value, style={"margin": "0", "fontSize": "22px",
+                             "fontWeight": "700", "color": colour}),
+        html.P(sub, style={"margin": "4px 0 0", "fontSize": "12px",
+                           "color": "#8A9E97", "lineHeight": "1.4"}),
+    ], style={"backgroundColor": "#fff", "border": "1px solid #e0e0e0",
+              "borderRadius": "6px", "padding": "12px 14px", "flex": "1",
+              "minWidth": "150px"})
+
+
+def build_cards(leg, ev, ice, cmp_):
+    """Summary row. Energy and battery from EVRange, money and CO2 from us."""
+    saving = cmp_["saving_jmd"]
+    win_colour = "#1A7A6E" if saving > 0 else "#C55A11"
+    pct = f"{cmp_['saving_pct']:.0f}% cheaper" if cmp_["saving_pct"] is not None else ""
+    cards = [
+        _card("Distance", f"{leg['distanceKm']:,.1f} km",
+              f"About {leg.get('durationMin', 0):,.0f} minutes", "#2E75B6"),
+        _card("Electric", f"J${ev.total_cost:,.0f}",
+              f"J${ev.cost_per_km:,.2f}/km at {leg['avgWhkm']:,.0f} Wh/km",
+              "#1A7A6E"),
+        _card("Petrol", f"J${ice.total_cost:,.0f}",
+              f"J${ice.cost_per_km:,.2f}/km, {ice.litres:,.1f} litres",
+              "#C55A11"),
+        _card("Saving per trip", f"J${saving:,.0f}", pct, win_colour),
+        _card("Battery used", f"{leg.get('socNeededPct', 0):,.1f}%",
+              f"{leg.get('socAfterTripPct', 0):,.1f}% left on arrival",
+              "#2E75B6"),
+        _card("CO2 avoided", f"{cmp_['co2_saving_kg']:,.1f} kg",
+              (f"{cmp_['co2_saving_pct']:.0f}% less than petrol"
+               if cmp_["co2_saving_pct"] is not None else ""), "#1A7A6E"),
+    ]
+    return html.Div(cards, style={"display": "flex", "gap": "10px",
+                                  "flexWrap": "wrap"})
+
+
+def build_basis(ev, ice):
+    """
+    Every figure above, shown as the arithmetic that produced it.
+
+    This is not decoration. The module joins someone else's energy model to
+    this project's prices, and a reader has to be able to see which half a
+    number came from.
+    """
+    items = [html.Li(t, style={"marginBottom": "5px"})
+             for t in (ev.basis + [b for b in ice.basis if b not in ev.basis])]
+    return html.Details([
+        html.Summary("How these figures were calculated",
+                     style={"fontSize": "14px", "fontWeight": "600",
+                            "cursor": "pointer", "color": "#2E75B6"}),
+        html.Ul(items, style={"fontSize": "13px", "color": "#5B7A70",
+                              "lineHeight": "1.55", "marginTop": "10px",
+                              "paddingLeft": "20px"}),
+    ], style={"borderTop": "1px solid #eee", "paddingTop": "10px"})
 
 
 def build_costs(api_result, *, charge_rate, rate_label, pump_price,

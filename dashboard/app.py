@@ -16,6 +16,10 @@ from vehicles import (ICE_VEHICLES, BEV_VEHICLES,
                       estimated_vehicle_keys,
                       ESTIMATE_FOOTNOTE, CONSUMPTION_FOOTNOTE)
 from module7_policy import build_module7_layout
+from module_route import (route_map_layout, source_banner, build_map_figure,
+                          fetch_route, build_costs, build_cards, build_basis,
+                          CALIBRATION_NOTE)
+import routes as route_data
 
 app = dash.Dash(
     __name__,
@@ -416,6 +420,7 @@ def serve_layout():
             html.Div([
                 html.Div(homepage_layout(),      id="content-home"),
                 html.Div(module1_layout(),       id="content-tab-1"),
+                html.Div(route_map_layout(),     id="content-tab-2"),
                 html.Div(dcc.Graph(id="tab3-fuel-chart", style={"height": "480px"}), id="content-tab-3"),
                 html.Div(module4_layout(),       id="content-tab-4"),
                 html.Div(module5_layout(),       id="content-tab-5"),
@@ -2785,6 +2790,9 @@ MODULE_INFO = {
     "tab-8": ("Caribbean Regional Comparison",     "#C55A11"),
     "tab-1": ("EV vs. ICE Calculator",             "#2E75B6"),
     "tab-6": ("Taxi Feasibility Tool",             "#1A7A6E"),
+    # Restored at display 5, where it sat before it was cut, so the numbering
+    # matches Dr Harris's August review notes rather than moving twice.
+    "tab-2": ("Route Cost Map",                    "#2E75B6"),
     "tab-4": ("Fleet Penetration Simulator",       "#2E75B6"),
     "tab-5": ("Emissions Impact Calculator",       "#1A7A6E"),
     "tab-3": ("Gas & Energy Price Tracker",        "#2E75B6"),
@@ -3453,6 +3461,7 @@ def module6_layout():
 
 NAV_ICONS = {
     "tab-1": "fa-solid fa-calculator",
+    "tab-2": "fa-solid fa-route",
     "tab-3": "fa-solid fa-gas-pump",
     "tab-4": "fa-solid fa-chart-line",
     "tab-5": "fa-solid fa-leaf",
@@ -4706,6 +4715,23 @@ def update_module_instructions(active_tab):
                 "The fuel price comes from the global settings sidebar."
             ),
         },
+        "tab-2": {
+            "title": "Route Cost Map",
+            "summary": (
+                "Costs a single journey along a corridor that was actually "
+                "driven during data collection. Energy comes from EVRange, an "
+                "external physics model calibrated on those runs. The money "
+                "and emissions are this project's, using the same prices as "
+                "the calculator and the taxi tool."
+            ),
+            "how": (
+                "Pick a corridor and a vehicle. Open Conditions to set "
+                "passengers, cargo, temperature and driving mode. The banner "
+                "above the map says whether the figures are real or "
+                "placeholder, and the panel below the cards shows the "
+                "arithmetic behind every number."
+            ),
+        },
         "tab-3": {
             "title": "Gas & Energy Price Tracker",
             "summary": (
@@ -4825,6 +4851,88 @@ for _stream in ["private", "public", "goj"]:
 
 # ── Run ───────────────────────────────────────────────────────────
 app.layout = serve_layout
+
+# ── Module 5 (tab-2): Route Cost Map ──────────────────────────────
+#
+# Energy comes from EVRange, money and emissions from this project. The
+# callback is thin on purpose: the request lives in module_route.fetch_route,
+# the arithmetic in route_costs, and the rendering in module_route, so this
+# only wires Global settings to them.
+#
+# Prices are read from the shared inputs rather than held locally, so the same
+# journey cannot cost one amount here and another in the calculator.
+@app.callback(
+    Output("mr-banner", "children"),
+    Output("mr-map", "figure"),
+    Output("mr-cards", "children"),
+    Output("mr-basis", "children"),
+    Output("mr-calibration-note", "children"),
+    Input("mr-route", "value"),
+    Input("mr-vehicle", "value"),
+    Input("mr-soc", "value"),
+    Input("mr-passengers", "value"),
+    Input("mr-cargo", "value"),
+    Input("mr-temp", "value"),
+    Input("mr-mode", "value"),
+    Input("mr-return-trip", "value"),
+    Input("mr-ice-consumption", "value"),
+    Input("mr-charging-location", "value"),
+    Input("effective-fuel-price-store", "data"),
+    Input("electricity-rate-slider", "value"),
+    Input("public-charging-rate", "value"),
+    Input("charging-network-select", "value"),
+)
+def update_route_map(route_key, vehicle_key, soc, passengers, cargo, temp,
+                     mode, return_trip, ice_consumption, charging_location,
+                     fuel_price, home_rate, public_rate, network_key):
+    blank = go.Figure(layout={"margin": {"l": 0, "r": 0, "t": 0, "b": 0}})
+    if not route_key or not vehicle_key:
+        return (None, blank, None, None, "")
+
+    note = CALIBRATION_NOTE.get(vehicle_key, "")
+    if fuel_price is None:
+        return (html.Div("Enter a fuel price in Global settings to see costs.",
+                         style={"padding": "10px 14px", "fontSize": "14px",
+                                "color": "#8A6D00", "backgroundColor": "#FFF4CC",
+                                "border": "1px solid #E8D48A",
+                                "borderRadius": "6px"}),
+                blank, None, None, note)
+
+    is_return = bool(return_trip)
+    result = fetch_route(route_key, vehicle_key,
+                         soc=soc or 80, passengers=passengers or 1,
+                         cargo=cargo or 0, temp=temp if temp is not None else 28,
+                         mode=mode or "normal", return_trip=is_return)
+
+    if charging_location == "public":
+        rate = public_rate if public_rate is not None else 96.0
+        rate_label = CHARGING_NETWORKS.get(network_key, {}).get("label", "public charging")
+    else:
+        rate = home_rate if home_rate is not None else 0.0
+        rate_label = "home tariff, JPS"
+
+    ev, ice, cmp_, leg = build_costs(
+        result,
+        charge_rate=rate, rate_label=rate_label,
+        pump_price=fuel_price,
+        price_label="your pump price from Global settings",
+        # Probox 1.5L, the route-taxi incumbent. Note the two dictionaries
+        # disagree on which figure to use: TAXI_VEHICLES holds consumption_urban
+        # at 10.7 and ICE_VEHICLES holds the combined 7.6. Rather than pick one
+        # silently, the value is a visible input on the page defaulting to
+        # combined, and the basis panel records whichever was used.
+        ice_consumption=ice_consumption if ice_consumption else 7.6,
+        grid_intensity=renewable_pct_to_intensity(DEFAULT_RE_PCT),
+        co2_per_litre=CO2_PER_LITRE_PETROL,
+        return_trip=is_return,
+    )
+    return (source_banner(result["source"], result.get("note", "")),
+            build_map_figure(leg.get("geometry"),
+                             route_data.MEASURED_ROUTES[route_key]["label"]),
+            build_cards(leg, ev, ice, cmp_),
+            build_basis(ev, ice),
+            note)
+
 
 if __name__ == "__main__":
     # Debug mode is OFF unless you explicitly ask for it.
