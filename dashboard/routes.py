@@ -55,15 +55,97 @@ MEASURED_ROUTES = {
     },
 }
 
-# ── Named but not yet measured ───────────────────────────────────
-# From report Section 8.3. These were identified as route-taxi corridors of
-# interest and never surveyed. Endpoints are unknown, NOT approximated.
+# ── Measured Kingston route-taxi runs ────────────────────────────
+#
+# Sixteen runs in a BYD Yuan Plus over the corridors named in report Section
+# 8.3, recorded by Andrew Smart. Energy read from the vehicle's own end-of-trip
+# consumption display, so the resolution is 0.1 kWh.
+#
+# READ THIS BEFORE USING ANY INDIVIDUAL FIGURE
+# --------------------------------------------
+# Per-run Wh/km ranges from -271 to +667. That spread is real and mostly
+# physical: Kingston rises from the harbour inland, so direction dominates.
+# Half Way Tree to Three Miles reads 57 Wh/km downhill and 343 Wh/km on the
+# return over the identical 3.5 km. The Red Hills pair regenerates on the
+# descent, which is why one figure is negative.
+#
+# The consequence is that a single run measures one direction of one corridor
+# on one day, not the consumption of the vehicle. Only the AGGREGATE below is
+# fit to quote, because errors and gradients partly cancel across the set.
+#
+# Two known problems, both unresolved:
+#   - Windward Road is coastal and effectively flat, yet reads 144 Wh/km
+#     outbound against 44 Wh/km back. No gradient explains it.
+#   - Runs 1 and 5 are the same corridor, Crossroads to South Parade by Slipe
+#     Road, recorded as 3.0 km one way and 2.0 km the other. One is wrong.
+#
+# No coordinates. Endpoints exist only as Google Maps links and place names,
+# so these runs cannot yet be drawn on the map or sent to EVRange. Obtaining
+# the endpoint coordinates is what would let each run be compared against the
+# model directly, which is the whole point of having measured them.
+MEASURED_URBAN_RUNS = [
+    # (run, origin, via, destination, km, kWh)
+    (1,  "Crossroads",       "Slipe Road",      "South Parade",   3.0,  0.3),
+    (2,  "Half Way Tree",    "Hagley Park Rd",  "Three Miles",    3.5,  0.2),
+    (3,  "Half Way Tree",    "Oxford Rd",       "Crossroads",     2.3,  0.5),
+    (4,  "UWI backgate",     "Old Hope Rd",     "Crossroads",     7.0,  0.7),
+    (5,  "South Parade",     "Slipe Road",      "Crossroads",     2.0,  1.0),
+    (6,  "Crossroads",       "Half Way Tree Rd","Half Way Tree",  3.0,  0.8),
+    (7,  "Crossroads",       "Old Hope Rd",     "UWI backgate",   7.0,  2.0),
+    (8,  "Half Way Tree",    "Red Hills Rd",    "Mackville",      6.0,  0.8),
+    (9,  "Mackville",        "Red Hills Rd",    "Fi-wi Mary",     4.8,  3.2),
+    (10, "Fi-wi Mary",       "Red Hills Rd",    "Mackville",      4.8, -1.3),
+    (11, "Mackville",        "Red Hills Rd",    "Half Way Tree",  5.3,  1.1),
+    (12, "South Parade",     "Windward Rd",     "Harbour View",   9.0,  1.3),
+    (13, "Harbour View",     "Windward Rd",     "South Parade",   9.0,  0.4),
+    (14, "Three Miles",      "Spanish Town Rd", "Duhaney Park",   5.0,  0.9),
+    (15, "Duhaney Park",     "Spanish Town Rd", "Three Miles",    5.0,  1.0),
+    (16, "Three Miles",      "Hagley Park Rd",  "Half Way Tree",  3.5,  1.2),
+]
+
+MEASURED_RUNS_SOURCE = (
+    "Sixteen route-taxi runs in a BYD Yuan Plus over Kingston corridors, "
+    "Andrew Smart, 2026. Energy from the vehicle end-of-trip consumption "
+    "display, resolution 0.1 kWh."
+)
+
+
+def urban_aggregate_whkm(include_regen: bool = True) -> dict:
+    """
+    The one quotable figure from the measured runs.
+
+    Aggregated as total energy over total distance rather than as a mean of
+    per-run rates. A mean of rates would weight a 2 km run equally with a 9 km
+    one and would be dominated by the short, steep, low-resolution runs.
+    """
+    runs = MEASURED_URBAN_RUNS if include_regen else [
+        r for r in MEASURED_URBAN_RUNS if r[5] > 0]
+    km = sum(r[4] for r in runs)
+    kwh = sum(r[5] for r in runs)
+    return {
+        "wh_per_km": kwh * 1000.0 / km,
+        "kwh_per_100km": kwh * 100.0 / km,
+        "total_km": km,
+        "total_kwh": kwh,
+        "runs": len(runs),
+        "source": MEASURED_RUNS_SOURCE,
+    }
+
+
+# Convenience: the headline number, all sixteen runs included.
+URBAN_AGGREGATE = urban_aggregate_whkm()
+
+
+# Corridors that have been driven and measured but have no endpoint
+# coordinates, so they cannot yet be routed or drawn. This is a shortlist of
+# distinct corridors rather than one entry per run.
 PENDING_ROUTES = {
-    "hwt-papine":        "Half Way Tree to Papine",
-    "hwt-three-miles":   "Half Way Tree to Three Miles",
-    "downtown-crossroads": "Downtown to Crossroads",
-    "manor-park":        "Manor Park corridor",
-    "backgate-spanish-town": "Backgate to Spanish Town",
+    "slipe-road":      "Crossroads to South Parade, Slipe Road",
+    "hagley-park":     "Half Way Tree to Three Miles, Hagley Park Road",
+    "old-hope":        "Crossroads to UWI backgate, Old Hope Road",
+    "red-hills":       "Half Way Tree to Red Hills, via Mackville",
+    "windward":        "South Parade to Harbour View, Windward Road",
+    "spanish-town-rd": "Three Miles to Duhaney Park, Spanish Town Road",
 }
 
 
