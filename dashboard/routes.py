@@ -231,7 +231,7 @@ PLACES: dict[str, list[float] | None] = {
     "UWI backgate":   dms("""18°00'19.3"N 76°44'30.8"W"""),
     "Mackville":      gmaps(18.0452, -76.8230),   # TotalEnergies, Mackville Terrace
     "Fi-wi Mary":     gmaps(18.0536, -76.8470),   # Fi-wi Mary gas station, Red Hills Rd
-    "Harbour View":   gmaps(17.9489, -76.8852),   # Harbour View roundabout
+    "Harbour View":   dms("""17°56'57.1"N 76°43'08.6"W"""),   # Harbour View roundabout
     "Duhaney Park":   gmaps(18.0261, -76.8474),   # Duhaney Park
 }
 
