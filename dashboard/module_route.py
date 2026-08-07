@@ -86,6 +86,24 @@ def source_banner(source: str, note: str):
     return html.Div(text, style=style)
 
 
+def _route_availability_note() -> str:
+    """
+    States plainly how much of the measured set is currently usable, rather
+    than leaving a short dropdown looking like the whole dataset.
+    """
+    st = route_data.coordinate_status()
+    base = ("Only corridors actually driven during data collection are "
+            "offered, so every result here can be checked against a recorded "
+            "run. ")
+    if st["places_done"] < st["places_total"]:
+        return base + (
+            f"{st['runs_total']} measured Kingston runs exist but "
+            f"{st['runs_total'] - st['runs_routable']} of them cannot be shown "
+            f"yet, because {st['places_total'] - st['places_done']} of "
+            f"{st['places_total']} endpoint coordinates are still missing.")
+    return base + f"All {st['runs_total']} measured Kingston runs are available."
+
+
 def route_map_layout():
     route_opts = route_data.selectable_routes()
     default_route = route_opts[0]["value"] if route_opts else None
@@ -103,14 +121,9 @@ def route_map_layout():
             dcc.Dropdown(id="mr-route", options=route_opts, value=default_route,
                          clearable=False,
                          style={"fontSize": "16px", "marginBottom": "8px"}),
-            html.P(
-                "Only corridors that were actually driven during data "
-                "collection are offered, so every result on this page can be "
-                "checked against a recorded run. "
-                f"{len(route_data.PENDING_ROUTES)} further route-taxi corridors "
-                "are named in the report but have not been surveyed.",
-                style={"fontSize": "12px", "color": "#8A9E97",
-                       "margin": "0 0 12px", "lineHeight": "1.45"}),
+            html.P(_route_availability_note(),
+                   style={"fontSize": "12px", "color": "#8A9E97",
+                          "margin": "0 0 12px", "lineHeight": "1.45"}),
             dcc.Checklist(
                 id="mr-return-trip",
                 options=[{"label": " Return trip", "value": "yes"}],
@@ -266,7 +279,9 @@ def build_map_figure(geometry, label):
 def fetch_route(route_key, vehicle_key, *, soc, passengers, cargo, temp,
                 mode, return_trip):
     """One call, with the UI's inputs mapped onto the EVRange request shape."""
-    r = route_data.MEASURED_ROUTES[route_key]
+    r = route_data.resolve_route(route_key)
+    if r is None:
+        raise KeyError(f"unknown route {route_key!r}")
     spec_id = EV_SPEC_IDS.get(vehicle_key) or f"PENDING:{vehicle_key}"
     return calculate_route(
         spec_id, r["start"], r["end"],

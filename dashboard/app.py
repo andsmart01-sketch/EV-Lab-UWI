@@ -4928,7 +4928,7 @@ def update_route_map(route_key, vehicle_key, soc, passengers, cargo, temp,
     )
     return (source_banner(result["source"], result.get("note", "")),
             build_map_figure(leg.get("geometry"),
-                             route_data.MEASURED_ROUTES[route_key]["label"]),
+                             (route_data.resolve_route(route_key) or {}).get("label", "")),
             build_cards(leg, ev, ice, cmp_),
             build_basis(ev, ice),
             note)

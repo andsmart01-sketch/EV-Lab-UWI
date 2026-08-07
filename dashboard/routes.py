@@ -136,22 +136,118 @@ def urban_aggregate_whkm(include_regen: bool = True) -> dict:
 URBAN_AGGREGATE = urban_aggregate_whkm()
 
 
-# Corridors that have been driven and measured but have no endpoint
-# coordinates, so they cannot yet be routed or drawn. This is a shortlist of
-# distinct corridors rather than one entry per run.
-PENDING_ROUTES = {
-    "slipe-road":      "Crossroads to South Parade, Slipe Road",
-    "hagley-park":     "Half Way Tree to Three Miles, Hagley Park Road",
-    "old-hope":        "Crossroads to UWI backgate, Old Hope Road",
-    "red-hills":       "Half Way Tree to Red Hills, via Mackville",
-    "windward":        "South Parade to Harbour View, Windward Road",
-    "spanish-town-rd": "Three Miles to Duhaney Park, Spanish Town Road",
+# ── Endpoint coordinates ─────────────────────────────────────────
+#
+# The sixteen measured runs touch only NINE distinct places. Fill these in and
+# every run below becomes routable and drawable at once. Until then they are
+# measured but not mappable.
+#
+# HOW TO GET THEM, about five minutes:
+#   Open Google Maps, right-click the spot, and the top line of the menu is
+#   "17.99581, -76.74670". Click it to copy. Paste both numbers into gmaps()
+#   below IN THAT ORDER.
+#
+# gmaps() exists specifically so the order cannot go wrong. Google shows
+# latitude first; EVRange wants longitude first. Passing Google's numbers
+# straight into a coordinate list is the single easiest mistake to make here,
+# and it fails silently by putting the route in the Indian Ocean rather than
+# raising anything. gmaps(lat, lon) does the swap and range-checks that the
+# point is actually in Jamaica.
+JAMAICA_BOUNDS = {"lat": (17.6, 18.6), "lon": (-78.5, -76.1)}
+
+
+def gmaps(lat: float, lon: float) -> list[float]:
+    """
+    Take a Google Maps coordinate pair in its displayed order and return the
+    [lon, lat] order EVRange expects.
+
+    Raises rather than warns. A silently transposed coordinate produces a
+    plausible-looking route somewhere else entirely, which is exactly the kind
+    of confident wrong output this project keeps having to catch.
+    """
+    lo, hi = JAMAICA_BOUNDS["lat"]
+    if not lo <= lat <= hi:
+        raise ValueError(
+            f"latitude {lat} is outside Jamaica ({lo} to {hi}). "
+            f"Did you paste longitude first? gmaps() wants Google's order, "
+            f"latitude then longitude.")
+    lo, hi = JAMAICA_BOUNDS["lon"]
+    if not lo <= lon <= hi:
+        raise ValueError(
+            f"longitude {lon} is outside Jamaica ({lo} to {hi}). "
+            f"Jamaican longitudes are negative.")
+    return [float(lon), float(lat)]
+
+
+# Paste coordinates here. Replace None with gmaps(lat, lon).
+#   "Crossroads": gmaps(17.9887, -76.7860),
+PLACES: dict[str, list[float] | None] = {
+    "Crossroads":     None,
+    "South Parade":   None,
+    "Half Way Tree":  None,
+    "Three Miles":    None,
+    "UWI backgate":   None,
+    "Mackville":      None,   # TotalEnergies, Mackville Terrace
+    "Fi-wi Mary":     None,   # Fi-wi Mary gas station, Red Hills Rd
+    "Harbour View":   None,   # Harbour View roundabout
+    "Duhaney Park":   None,
 }
 
 
+def _runs_with_coords() -> list[dict]:
+    """
+    Measured runs whose endpoints both have coordinates. Returns an empty list
+    until PLACES is filled, which is why the picker currently shows only the
+    three routes Rohan supplied.
+    """
+    out = []
+    for run, origin, via, dest, km, kwh in MEASURED_URBAN_RUNS:
+        a, b = PLACES.get(origin), PLACES.get(dest)
+        if a is None or b is None:
+            continue
+        out.append({
+            "key": f"run-{run}",
+            "label": f"{origin} to {dest} via {via}",
+            "start": a, "end": b,
+            "measured_km": km, "measured_kwh": kwh,
+            "run_id": run,
+        })
+    return out
+
+
+def coordinate_status() -> dict:
+    """How much of the measured set is currently usable."""
+    have = [k for k, v in PLACES.items() if v is not None]
+    return {
+        "places_total": len(PLACES),
+        "places_done": len(have),
+        "places_missing": [k for k, v in PLACES.items() if v is None],
+        "runs_routable": len(_runs_with_coords()),
+        "runs_total": len(MEASURED_URBAN_RUNS),
+    }
+
+
 def selectable_routes() -> list[dict]:
-    """Routes fit to offer in the UI. Only measured ones qualify."""
-    return [{"value": k, "label": v["label"]} for k, v in MEASURED_ROUTES.items()]
+    """
+    Routes fit to offer in the UI: Rohan's three confirmed pairs, plus every
+    measured Kingston run whose endpoints have been given coordinates.
+
+    The Kingston runs appear automatically as PLACES is filled in, so adding
+    nine coordinate pairs turns on sixteen routes without touching this file.
+    """
+    opts = [{"value": k, "label": v["label"]} for k, v in MEASURED_ROUTES.items()]
+    opts += [{"value": r["key"], "label": r["label"]} for r in _runs_with_coords()]
+    return opts
+
+
+def resolve_route(key: str) -> dict | None:
+    """One lookup for both sources, so callers do not need to know which is which."""
+    if key in MEASURED_ROUTES:
+        return MEASURED_ROUTES[key]
+    for r in _runs_with_coords():
+        if r["key"] == key:
+            return r
+    return None
 
 
 # ── Tolls ────────────────────────────────────────────────────────
