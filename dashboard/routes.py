@@ -215,6 +215,59 @@ def _runs_with_coords() -> list[dict]:
     return out
 
 
+def _haversine_km(a: list[float], b: list[float]) -> float:
+    """Great-circle distance between two [lon, lat] points."""
+    import math
+    R = 6371.0
+    lo1, la1 = math.radians(a[0]), math.radians(a[1])
+    lo2, la2 = math.radians(b[0]), math.radians(b[1])
+    h = (math.sin((la2 - la1) / 2) ** 2
+         + math.cos(la1) * math.cos(la2) * math.sin((lo2 - lo1) / 2) ** 2)
+    return 2 * R * math.asin(math.sqrt(h))
+
+
+def check_coordinates() -> list[dict]:
+    """
+    Sanity-check entered coordinates against the recorded road distances.
+
+    The test that actually bites is ratio < 1: road distance cannot be shorter
+    than the straight line between the same two points, so a ratio below 1
+    means an endpoint is in the wrong place. Nothing else about the result
+    would look wrong. The distance is well formed, the cost is plausible, and
+    the map draws a line. This is the only signal available.
+
+    A first attempt at filling PLACES from memory failed six of sixteen runs on
+    exactly this test, which is why it exists.
+
+    Returns one entry per problem, empty when everything checks out.
+    """
+    problems = []
+    for r in _runs_with_coords():
+        straight = _haversine_km(r["start"], r["end"])
+        road = r["measured_km"]
+        if straight <= 0:
+            problems.append({"run": r["run_id"], "label": r["label"],
+                             "severity": "error",
+                             "message": "start and end are the same point"})
+            continue
+        ratio = road / straight
+        if ratio < 1.0:
+            problems.append({
+                "run": r["run_id"], "label": r["label"], "severity": "error",
+                "ratio": round(ratio, 2),
+                "message": (f"recorded road distance {road} km is shorter than "
+                            f"the straight line {straight:.2f} km. Impossible, "
+                            f"so one of the two endpoints is wrong.")})
+        elif ratio > 2.0:
+            problems.append({
+                "run": r["run_id"], "label": r["label"], "severity": "warning",
+                "ratio": round(ratio, 2),
+                "message": (f"road distance {road} km is {ratio:.1f}x the "
+                            f"straight line {straight:.2f} km. Possible on a "
+                            f"winding route, worth checking the endpoints.")})
+    return problems
+
+
 def coordinate_status() -> dict:
     """How much of the measured set is currently usable."""
     have = [k for k, v in PLACES.items() if v is not None]
@@ -224,7 +277,27 @@ def coordinate_status() -> dict:
         "places_missing": [k for k, v in PLACES.items() if v is None],
         "runs_routable": len(_runs_with_coords()),
         "runs_total": len(MEASURED_URBAN_RUNS),
+        "problems": check_coordinates(),
     }
+
+
+if __name__ == "__main__":
+    # python dashboard/routes.py  checks whatever is currently in PLACES.
+    st = coordinate_status()
+    print(f"{st['places_done']} of {st['places_total']} places have coordinates, "
+          f"{st['runs_routable']} of {st['runs_total']} runs routable")
+    if st["places_missing"]:
+        print("missing:", ", ".join(st["places_missing"]))
+    probs = st["problems"]
+    if not st["runs_routable"]:
+        print("\nNothing to check yet. Fill in PLACES using gmaps(lat, lon).")
+    elif not probs:
+        print("\nAll routable runs pass the distance check.")
+    else:
+        print(f"\n{len(probs)} problem(s):")
+        for p in probs:
+            print(f"  [{p['severity']}] run {p['run']}, {p['label']}")
+            print(f"      {p['message']}")
 
 
 def selectable_routes() -> list[dict]:
