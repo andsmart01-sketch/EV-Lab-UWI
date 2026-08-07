@@ -111,6 +111,43 @@ MEASURED_RUNS_SOURCE = (
     "display, resolution 0.1 kWh."
 )
 
+# ── Distance adjustments ─────────────────────────────────────────
+#
+# MEASURED_URBAN_RUNS above is the record of what was read off the vehicle and
+# is never edited. Where a recorded distance is not physically possible against
+# the endpoint coordinates, the correction is declared here instead, with its
+# reason, so the raw figure and the adjustment stay separately visible.
+#
+# Both cases are corridors driven in each direction where the two distances
+# disagree. The vehicle's distance increment is coarse and the stopping point
+# varied between runs, so the true value lies somewhere between the two
+# readings. That reasoning holds for run 5 and is ruled out for run 3, where
+# the midpoint is still shorter than the straight line.
+#
+# ON THE UNCERTAINTY MORE BROADLY: five of the seven paired corridors show a
+# spread of exactly zero, and two show 26 and 40 per cent. Genuine measurement
+# noise would appear on most pairs, so the likeliest explanation is that on the
+# five, one reading was recorded for both directions. The uncertainty is
+# therefore present throughout and merely invisible outside these two.
+DISTANCE_ADJUSTMENTS = {
+    3: {"recorded": 2.3, "used": 3.0,
+        "reason": ("Straight line between the endpoints is 2.88 km, so 2.3 km "
+                   "is impossible and the midpoint of 2.3 and 3.0 is also "
+                   "impossible. Geometry forces at least 2.88 km, so the "
+                   "3.0 km recorded in the opposite direction is used.")},
+    5: {"recorded": 2.0, "used": 2.5,
+        "reason": ("Straight line is 2.28 km, so 2.0 km is impossible. The "
+                   "same corridor was recorded at 3.0 km in the opposite "
+                   "direction, and the midpoint of 2.0 and 3.0 is feasible, "
+                   "so 2.5 km is used.")},
+}
+
+
+def distance_for(run_id: int, recorded_km: float) -> float:
+    """Adjusted distance where one is declared, otherwise the recorded value."""
+    adj = DISTANCE_ADJUSTMENTS.get(run_id)
+    return adj["used"] if adj else recorded_km
+
 
 def urban_aggregate_whkm(include_regen: bool = True) -> dict:
     """
@@ -122,14 +159,26 @@ def urban_aggregate_whkm(include_regen: bool = True) -> dict:
     """
     runs = MEASURED_URBAN_RUNS if include_regen else [
         r for r in MEASURED_URBAN_RUNS if r[5] > 0]
-    km = sum(r[4] for r in runs)
+    km = sum(distance_for(r[0], r[4]) for r in runs)
     kwh = sum(r[5] for r in runs)
+    central = kwh * 1000.0 / km
+    # Distance uncertainty, taken from the two corridors where the distance was
+    # genuinely read in both directions: spreads of 26 and 40 per cent about
+    # the mean, so roughly 15 per cent either side. Energy resolution is 0.1
+    # kWh, which matters far more on a 2 km run than a 9 km one. Quoted as a
+    # band because a single figure would imply a precision the instrument does
+    # not have.
+    dist_unc = 0.15
     return {
-        "wh_per_km": kwh * 1000.0 / km,
+        "wh_per_km": central,
+        "wh_per_km_low": kwh * 1000.0 / (km * (1 + dist_unc)),
+        "wh_per_km_high": kwh * 1000.0 / (km * (1 - dist_unc)),
         "kwh_per_100km": kwh * 100.0 / km,
         "total_km": km,
         "total_kwh": kwh,
         "runs": len(runs),
+        "distance_uncertainty": dist_unc,
+        "adjusted_runs": sorted(DISTANCE_ADJUSTMENTS),
         "source": MEASURED_RUNS_SOURCE,
     }
 
@@ -286,7 +335,7 @@ def check_coordinates() -> list[dict]:
     problems = []
     for r in _runs_with_coords():
         straight = _haversine_km(r["start"], r["end"])
-        road = r["measured_km"]
+        road = distance_for(r["run_id"], r["measured_km"])
         if straight <= 0:
             problems.append({"run": r["run_id"], "label": r["label"],
                              "severity": "error",
