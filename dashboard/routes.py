@@ -21,6 +21,8 @@ in it corresponds to a run with recorded consumption.
 
 from __future__ import annotations
 
+import re
+
 # ── Measured runs ────────────────────────────────────────────────
 # Supplied by Rohan, 7 August 2026, from the joint data collection runs.
 # The full set with recorded consumption is still to come as a spreadsheet;
@@ -179,14 +181,54 @@ def gmaps(lat: float, lon: float) -> list[float]:
     return [float(lon), float(lat)]
 
 
-# Paste coordinates here. Replace None with gmaps(lat, lon).
-#   "Crossroads": gmaps(17.9887, -76.7860),
+_DMS_RE = re.compile(
+    r"""(\d+)\s*[°d]\s*(\d+)\s*['′]\s*([\d.]+)\s*["″]?\s*([NSEW])""",
+    re.IGNORECASE | re.VERBOSE)
+
+
+def dms(text: str) -> list[float]:
+    """
+    Parse the degrees-minutes-seconds string Google Maps shows and return
+    [lon, lat] for EVRange.
+
+        dms('''18°00'19.3"N 76°44'30.8"W''')  ->  [-76.741889, 18.005361]
+
+    This exists because converting DMS to decimal by hand is where the first
+    round of coordinates went wrong: the latitude came out right and the
+    longitude was mistyped, which put a route fifteen kilometres west of where
+    it belonged while still producing a valid distance and a plausible cost.
+
+    Copying the string straight out of Google removes the arithmetic. The
+    hemisphere letters carry the sign, so W and S cannot be forgotten.
+    """
+    found = _DMS_RE.findall(text)
+    if len(found) != 2:
+        raise ValueError(
+            f"expected two DMS coordinates with N/S/E/W, found {len(found)} "
+            f"in {text!r}. Paste exactly what Google Maps shows, for example "
+            "18°00'19.3\"N 76°44'30.8\"W")
+    vals = {}
+    for deg, mins, secs, hemi in found:
+        v = int(deg) + int(mins) / 60.0 + float(secs) / 3600.0
+        h = hemi.upper()
+        if h in ("S", "W"):
+            v = -v
+        vals["lat" if h in ("N", "S") else "lon"] = v
+    if "lat" not in vals or "lon" not in vals:
+        raise ValueError(f"need one N/S and one E/W value, got {text!r}")
+    return gmaps(round(vals["lat"], 6), round(vals["lon"], 6))
+
+
+# Paste coordinates here. Either form works:
+#   from decimal, in Google's displayed order:  gmaps(17.9887, -76.7860)
+#   straight from Google's DMS readout:        dms('''18°00'19.3"N 76°44'30.8"W''')
+# Prefer dms(), since it does the arithmetic for you.
 PLACES: dict[str, list[float] | None] = {
     "Crossroads":     gmaps(17.9887, -76.7860),
     "South Parade":   gmaps(17.9695, -76.7936),
     "Half Way Tree":  gmaps(18.0118, -76.7983),
     "Three Miles":    gmaps(17.9984, -76.8248),
-    "UWI backgate":   gmaps(18.0054, -76.8752),
+    "UWI backgate":   dms("""18°00'19.3"N 76°44'30.8"W"""),
     "Mackville":      gmaps(18.0452, -76.8230),   # TotalEnergies, Mackville Terrace
     "Fi-wi Mary":     gmaps(18.0536, -76.8470),   # Fi-wi Mary gas station, Red Hills Rd
     "Harbour View":   gmaps(17.9489, -76.8852),   # Harbour View roundabout
