@@ -21,6 +21,8 @@
 Thumbs.db
 __pycache__/
 data/.http_cache/
+# Office lock files, created while a document is open. Not project content.
+~$*
 data/raw/*.backup-*.xlsx
 data/surveys/*.csv
 env/

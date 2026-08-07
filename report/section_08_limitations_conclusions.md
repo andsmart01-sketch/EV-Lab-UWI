@@ -105,7 +105,7 @@ Five of these six were caught by checking a figure against its source, or by ask
 
 **Dashboard.**
 
-- Complete the Route Cost Map, the one unbuilt module. Corridor data has been identified: Half Way Tree to Papine, Red Hills, Three Miles, Downtown Crossroads, Manor Park, and Backgate to Spanish Town.
+- Build the Route Cost Map, which was scoped in week 2 as an eighth module and subsequently dropped rather than shipped empty. It was to show operating cost per kilometre across six Kingston route-taxi corridors: Half Way Tree to Papine, Red Hills, Three Miles, Downtown Crossroads, Manor Park, and Backgate to Spanish Town. Two things blocked it. No mapping data source was agreed, and no measured corridor distances were ever collected, so the module could not have been populated without inventing the distances it displayed. The underlying cost per kilometre arithmetic already exists in the Taxi Feasibility Tool, so the work needed is data collection rather than modelling.
 - Add the Chilean benchmark of 9.6 tonnes CO₂ avoided per taxi per year as a validation reference.
 
 **Analysis.**

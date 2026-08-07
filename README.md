@@ -32,16 +32,22 @@ ev-lab-repo/
 
 ## Dashboard Modules
 
+Seven modules, numbered here as they appear in the sidebar and on the home page.
+
 | # | Module | Status |
 |---|--------|--------|
-| 1 | EV / Hybrid vs. ICE Calculator | Planned — Week 1-2 |
-| 2 | Route Cost Map | Planned — Week 3 |
-| 3 | Gas & Energy Price Tracker | Planned — Week 2 |
-| 4 | Fleet Penetration Simulator | Planned — Week 3 |
-| 5 | Emissions Impact Calculator | Planned — Week 3 |
-| 6 | Taxi Feasibility Tool | Planned — Week 3 |
-| 7 | Fiscal Policy & Duty Tracker | Planned — Week 4 |
-| 8 | Caribbean Regional Comparison | Planned — Week 3-4 |
+| 1 | Fiscal Policy & Duty Tracker | Complete |
+| 2 | Caribbean Regional Comparison | Complete |
+| 3 | EV vs. ICE Calculator | Complete |
+| 4 | Taxi Feasibility Tool | Complete |
+| 5 | Fleet Penetration Simulator | Complete |
+| 6 | Emissions Impact Calculator | Complete |
+| 7 | Gas & Energy Price Tracker | Complete |
+
+A Route Cost Map was scoped in week 2 as an eighth module and dropped in
+August 2026 rather than shipped empty, because no mapping data source was
+agreed and no corridor distances were collected. It is carried in the report
+as further work, Section 8.3.
 
 ---
 

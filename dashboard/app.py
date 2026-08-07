@@ -52,7 +52,7 @@ server = app.server  # Expose the Flask server for deployment on UWI server
 
 # ── Static layout cache ───────────────────────────────────────────
 #
-# serve_layout() runs on EVERY page load and rebuilds all eight modules.
+# serve_layout() runs on EVERY page load and rebuilds all seven modules.
 # Measured at 86 ms, of which the Caribbean module alone was 24 ms because it
 # rebuilds two DataFrames and two figures from a dictionary that never changes.
 #
@@ -253,13 +253,6 @@ def chart_layout(title, height, xtitle=None, ytitle=None, y2title=None,
     return layout
 
 # ── Layout ────────────────────────────────────────────────────────
-def placeholder_layout():
-    return html.P(
-        "Module content will be built in accordance with the project timeline.",
-        style={"color": "#777", "fontSize": "16px", "marginTop": "20px"}
-    )
-
-
 def serve_layout():
     return html.Div([
 
@@ -423,7 +416,6 @@ def serve_layout():
             html.Div([
                 html.Div(homepage_layout(),      id="content-home"),
                 html.Div(module1_layout(),       id="content-tab-1"),
-                html.Div(placeholder_layout(),   id="content-tab-2"),
                 html.Div(dcc.Graph(id="tab3-fuel-chart", style={"height": "480px"}), id="content-tab-3"),
                 html.Div(module4_layout(),       id="content-tab-4"),
                 html.Div(module5_layout(),       id="content-tab-5"),
@@ -2793,16 +2785,10 @@ MODULE_INFO = {
     "tab-8": ("Caribbean Regional Comparison",     "#C55A11"),
     "tab-1": ("EV vs. ICE Calculator",             "#2E75B6"),
     "tab-6": ("Taxi Feasibility Tool",             "#1A7A6E"),
-    "tab-2": ("Route Cost Map",                    "#2E75B6"),
     "tab-4": ("Fleet Penetration Simulator",       "#2E75B6"),
     "tab-5": ("Emissions Impact Calculator",       "#1A7A6E"),
     "tab-3": ("Gas & Energy Price Tracker",        "#2E75B6"),
 }
-
-# Modules that render a placeholder rather than real content. Shown greyed with
-# an "In development" tag so a demo viewer knows it is deliberate, not broken.
-MODULES_IN_DEVELOPMENT = {"tab-2"}
-
 
 def module_number(tab_id):
     """Displayed module number, derived from position in MODULE_INFO."""
@@ -3467,7 +3453,6 @@ def module6_layout():
 
 NAV_ICONS = {
     "tab-1": "fa-solid fa-calculator",
-    "tab-2": "fa-solid fa-route",
     "tab-3": "fa-solid fa-gas-pump",
     "tab-4": "fa-solid fa-chart-line",
     "tab-5": "fa-solid fa-leaf",
@@ -3485,26 +3470,13 @@ def homepage_layout():
     }
     cards = []
     for n, (tab_id, (name, colour)) in enumerate(MODULE_INFO.items(), start=1):
-        in_dev = tab_id in MODULES_IN_DEVELOPMENT
-        this_card = dict(card_style)
-        if in_dev:
-            this_card.update({"opacity": "0.6",
-                              "borderStyle": "dashed"})
         cards.append(
             html.Div([
                 html.I(className=NAV_ICONS.get(tab_id, "fa-solid fa-circle"),
                        style={"fontSize": "27px", "color": "var(--accent)", "marginBottom": "10px"}),
                 html.H4(f"{n}. {name}",
                         style={"margin": "0 0 6px", "fontSize": "18px", "color": "var(--text-primary)"}),
-                html.Span("In development", style={
-                    "display": "inline-block", "marginTop": "8px",
-                    "fontSize": "12px", "fontWeight": "700",
-                    "letterSpacing": "0.4px", "textTransform": "uppercase",
-                    "color": "#8A6D00", "backgroundColor": "#FFF4CC",
-                    "border": "1px solid #E8D48A",
-                    "borderRadius": "10px", "padding": "2px 8px",
-                }) if in_dev else None,
-            ], id={"type": "home-card", "index": tab_id}, n_clicks=0, style=this_card)
+            ], id={"type": "home-card", "index": tab_id}, n_clicks=0, style=dict(card_style))
         )
     return html.Div([
         html.H2("Jamaica EV Dashboard", style={"color": "var(--text-primary)", "marginBottom": "4px"}),
@@ -3528,14 +3500,11 @@ def render_sidebar_nav(active_tab):
     ]
     for n, (tab_id, (name, _)) in enumerate(MODULE_INFO.items(), start=1):
         is_active = tab_id == active_tab
-        in_dev = tab_id in MODULES_IN_DEVELOPMENT
         links.append(
             html.Div([
                 html.I(className=NAV_ICONS.get(tab_id, "fa-solid fa-circle"),
                        style={"width": "18px", "fontSize": "16px"}),
-                html.Span(f"{n}. {name}",
-                          style={"fontSize": "16px",
-                                 "opacity": "0.55" if in_dev else "1"}),
+                html.Span(f"{n}. {name}", style={"fontSize": "16px"}),
             ], id={"type": "nav-link", "index": tab_id},
                className="sidebar-nav-link" + (" active" if is_active else ""),
                n_clicks=0)
@@ -4736,11 +4705,6 @@ def update_module_instructions(active_tab):
                 "then adjust daily driving distance and ownership years. "
                 "The fuel price comes from the global settings sidebar."
             ),
-        },
-        "tab-2": {
-            "title": "Route Cost Map",
-            "summary": "Maps operating cost per kilometre across Kingston route-taxi corridors.",
-            "how": "Select a route and vehicle type to see the per-km cost breakdown on the map.",
         },
         "tab-3": {
             "title": "Gas & Energy Price Tracker",

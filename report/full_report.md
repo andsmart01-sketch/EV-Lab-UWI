@@ -45,7 +45,7 @@ This project serves two audiences whose needs differ substantially.
 
 ## 1.4 Deliverables
 
-1. **An interactive dashboard** of eight modules built in Python using Plotly Dash, covering policy tracking, regional comparison, consumer cost comparison, taxi feasibility, national fleet projection, emissions, and historic fuel prices. Seven modules are complete; a route cost map remains unbuilt and is discussed in Section 8.
+1. **An interactive dashboard** of seven modules built in Python using Plotly Dash, covering policy tracking, regional comparison, consumer cost comparison, taxi feasibility, national fleet projection, emissions, and historic fuel prices. A route cost map was scoped early in the project but was not built, for the reasons given in Section 8.3, and does not form part of the delivered dashboard.
 2. **A user guide** presenting each module with step-by-step operating instructions, written for a reader with no technical background.
 3. **This report**, presenting methods, results, policy analysis and limitations.
 
@@ -760,7 +760,7 @@ Five of these six were caught by checking a figure against its source, or by ask
 
 **Dashboard.**
 
-- Complete the Route Cost Map, the one unbuilt module. Corridor data has been identified: Half Way Tree to Papine, Red Hills, Three Miles, Downtown Crossroads, Manor Park, and Backgate to Spanish Town.
+- Build the Route Cost Map, which was scoped in week 2 as an eighth module and subsequently dropped rather than shipped empty. It was to show operating cost per kilometre across six Kingston route-taxi corridors: Half Way Tree to Papine, Red Hills, Three Miles, Downtown Crossroads, Manor Park, and Backgate to Spanish Town. Two things blocked it. No mapping data source was agreed, and no measured corridor distances were ever collected, so the module could not have been populated without inventing the distances it displayed. The underlying cost per kilometre arithmetic already exists in the Taxi Feasibility Tool, so the work needed is data collection rather than modelling.
 - Add the Chilean benchmark of 9.6 tonnes CO₂ avoided per taxi per year as a validation reference.
 
 **Analysis.**

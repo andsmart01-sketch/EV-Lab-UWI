@@ -59,12 +59,16 @@ Display numbers do not match the internal tab ids.
 | 2 | tab-8 | Caribbean Regional Comparison |
 | 3 | tab-1 | EV vs ICE Calculator |
 | 4 | tab-6 | Taxi Feasibility Tool |
-| 5 | tab-2 | Route Cost Map (**unbuilt**, placeholder) |
-| 6 | tab-4 | Fleet Penetration Simulator |
-| 7 | tab-5 | Emissions Impact Calculator |
-| 8 | tab-3 | Gas and Energy Price Tracker |
+| 5 | tab-4 | Fleet Penetration Simulator |
+| 6 | tab-5 | Emissions Impact Calculator |
+| 7 | tab-3 | Gas and Energy Price Tracker |
 
 Dr Harris uses display numbers. The code uses tab ids.
+
+**Display numbers changed on 7 August 2026.** The Route Cost Map, formerly
+display 5 and internally tab-2, was cut. Everything after it moved down one:
+what Dr Harris knew as 6, 7 and 8 is now 5, 6 and 7. Anything written before
+that date, including his August review notes, uses the old numbering.
 
 ---
 
@@ -138,19 +142,26 @@ The choice is not "escalate or not" but "pick one basis and apply it
 everywhere": all real in 2026 dollars, all nominal with escalation, or real
 with a sensitivity slider.
 
-**Route Cost Map (display module 5).** Still a placeholder. Decide whether it
-ships marked "in development" or is cut, because the user guide covers eight
-modules and one is empty.
+**Route Cost Map. Resolved 7 August 2026: cut.** It was never started. No
+mapping data source was agreed with Dr Harris, and no corridor distances were
+ever measured, so the only way to populate it would have been to invent the
+numbers it displayed. Removed from the dashboard, the user guide and the
+README, and carried in report Section 8.3 as further work with the blocker
+stated. Display numbers shifted, see the table above.
 
 ---
 
 ## Outstanding work
 
-- README still says Streamlit rather than Dash, lists all eight modules as
-  "Planned", and has `[Supervisor Name]` as a placeholder. First thing anyone
-  visiting the repo reads.
-- Screenshots for the user guide. 21 slides carry marked placeholders and no
-  images are embedded yet.
+- README still says Streamlit rather than Dash in four places (lines 12, 25 and
+  88, including a dead "Streamlit Cloud URL" link line), and still has
+  `[Supervisor Name]` as a placeholder on line 4. The module table was
+  corrected on 7 August 2026 and now lists the seven built modules as
+  Complete. First thing anyone visiting the repo reads.
+- Screenshots for the user guide. The guide is now 33 slides after the Route
+  Cost Map slide was removed, and 21 of them carry marked placeholders with no
+  images embedded yet. Counted 7 August 2026; the earlier figure of 21 out of
+  34 was one slide short.
 - BSJ, NEPA, Transport Authority and TAJ are named across seven or more
   outstanding policy actions and have never been contacted. A dated negative
   reply is citable evidence of non-publication.
