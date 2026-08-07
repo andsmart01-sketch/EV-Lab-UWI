@@ -230,7 +230,7 @@ def route_map_layout():
     ])
 
 
-def build_map_figure(geometry, label):
+def build_map_figure(geometry, label, *, is_placeholder: bool = False):
     """
     Draw the route. EVRange returns [lon, lat] pairs, Plotly wants separate lat
     and lon lists, so the swap happens here and nowhere else.
@@ -254,9 +254,15 @@ def build_map_figure(geometry, label):
                           "font": {"size": 16, "color": "#aaa"}}])
         return fig
 
+    # A two-point geometry is a straight line between the endpoints, which is
+    # what the stub produces. Drawn solid and green it looks like a routed path
+    # that happens to be direct. Drawn thin, grey and captioned, it reads as
+    # what it is: no route data yet.
+    straight = is_placeholder or len(coords) <= 2
     fig.add_trace(go.Scattermap(
         lat=lats, lon=lons, mode="lines",
-        line={"width": 4, "color": "#1A7A6E"},
+        line=({"width": 2, "color": "#B0B0B0"} if straight
+              else {"width": 4, "color": "#1A7A6E"}),
         name=label, hoverinfo="skip",
     ))
     fig.add_trace(go.Scattermap(
@@ -273,6 +279,14 @@ def build_map_figure(geometry, label):
         margin={"l": 0, "r": 0, "t": 0, "b": 0},
         showlegend=False,
     )
+    if straight:
+        fig.add_annotation(
+            text=("Straight line between the endpoints, not the road taken. "
+                  "The routed path comes from EVRange."),
+            xref="paper", yref="paper", x=0.5, y=0.02, showarrow=False,
+            font={"size": 12, "color": "#666"},
+            bgcolor="rgba(255,255,255,0.85)", borderpad=4,
+        )
     return fig
 
 

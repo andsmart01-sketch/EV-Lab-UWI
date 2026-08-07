@@ -182,15 +182,15 @@ def gmaps(lat: float, lon: float) -> list[float]:
 # Paste coordinates here. Replace None with gmaps(lat, lon).
 #   "Crossroads": gmaps(17.9887, -76.7860),
 PLACES: dict[str, list[float] | None] = {
-    "Crossroads":     None,
-    "South Parade":   None,
-    "Half Way Tree":  None,
-    "Three Miles":    None,
-    "UWI backgate":   None,
-    "Mackville":      None,   # TotalEnergies, Mackville Terrace
-    "Fi-wi Mary":     None,   # Fi-wi Mary gas station, Red Hills Rd
-    "Harbour View":   None,   # Harbour View roundabout
-    "Duhaney Park":   None,
+    "Crossroads":     gmaps(17.9887, -76.7860),
+    "South Parade":   gmaps(17.9695, -76.7936),
+    "Half Way Tree":  gmaps(18.0118, -76.7983),
+    "Three Miles":    gmaps(17.9984, -76.8248),
+    "UWI backgate":   gmaps(18.0054, -76.8752),
+    "Mackville":      gmaps(18.0452, -76.8230),   # TotalEnergies, Mackville Terrace
+    "Fi-wi Mary":     gmaps(18.0536, -76.8470),   # Fi-wi Mary gas station, Red Hills Rd
+    "Harbour View":   gmaps(17.9489, -76.8852),   # Harbour View roundabout
+    "Duhaney Park":   gmaps(18.0261, -76.8474),   # Duhaney Park
 }
 
 
