@@ -21,7 +21,9 @@ in it corresponds to a run with recorded consumption.
 
 from __future__ import annotations
 
+import json
 import re
+from pathlib import Path
 
 # ── Measured runs ────────────────────────────────────────────────
 # Supplied by Rohan, 7 August 2026, from the joint data collection runs.
@@ -304,6 +306,45 @@ def _runs_with_coords() -> list[dict]:
             "run_id": run,
         })
     return out
+
+
+# ── Cached road geometry ─────────────────────────────────────────
+# Written once by scripts/fetch_route_geometry.py and committed, so the map
+# draws real roads with no network access. Geometry only: no number in this
+# file feeds a cost or emissions figure.
+_GEOMETRY_PATH = Path(__file__).resolve().parent.parent / "data" / "route_geometry.json"
+_geometry_cache: dict | None = None
+
+
+def road_geometry(route_key: str) -> dict | None:
+    """Cached OSRM geometry for a route, or None if it has not been fetched."""
+    global _geometry_cache
+    if _geometry_cache is None:
+        try:
+            _geometry_cache = json.loads(
+                _GEOMETRY_PATH.read_text(encoding="utf-8")).get("routes", {})
+        except Exception:
+            _geometry_cache = {}
+    entry = _geometry_cache.get(route_key)
+    return entry.get("geometry") if entry else None
+
+
+def osrm_distance_km(route_key: str) -> float | None:
+    """
+    Independent road distance for a route, from the road network rather than
+    the vehicle odometer.
+
+    Deliberately NOT used in any calculation. It is a cross-check on the
+    recorded distances, and the two measure different things: OSRM assumes the
+    route it would itself choose, the odometer records what was actually
+    driven. Where they disagree that is information, not an error to average
+    away.
+    """
+    global _geometry_cache
+    if _geometry_cache is None:
+        road_geometry(route_key)
+    entry = (_geometry_cache or {}).get(route_key)
+    return entry.get("osrm_distance_km") if entry else None
 
 
 def _haversine_km(a: list[float], b: list[float]) -> float:

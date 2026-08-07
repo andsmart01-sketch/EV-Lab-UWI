@@ -18,7 +18,7 @@ from vehicles import (ICE_VEHICLES, BEV_VEHICLES,
 from module7_policy import build_module7_layout
 from module_route import (route_map_layout, source_banner, build_map_figure,
                           fetch_route, build_costs, build_cards, build_basis,
-                          CALIBRATION_NOTE)
+                          best_geometry, CALIBRATION_NOTE)
 import routes as route_data
 
 app = dash.Dash(
@@ -4926,9 +4926,14 @@ def update_route_map(route_key, vehicle_key, soc, passengers, cargo, temp,
         co2_per_litre=CO2_PER_LITRE_PETROL,
         return_trip=is_return,
     )
+    # The map and the numbers have separate provenance. A cached road shape can
+    # be drawn while the costs beside it are still stub, so the banner tracks
+    # the figures and never the line.
+    geom, is_ph, _geo_note = best_geometry(route_key, result)
     return (source_banner(result["source"], result.get("note", "")),
-            build_map_figure(leg.get("geometry"),
-                             (route_data.resolve_route(route_key) or {}).get("label", "")),
+            build_map_figure(geom,
+                             (route_data.resolve_route(route_key) or {}).get("label", ""),
+                             is_placeholder=is_ph),
             build_cards(leg, ev, ice, cmp_),
             build_basis(ev, ice),
             note)

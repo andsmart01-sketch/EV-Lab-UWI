@@ -230,6 +230,32 @@ def route_map_layout():
     ])
 
 
+def best_geometry(route_key: str, api_result: dict):
+    """
+    Pick the best available line to draw, and say where it came from.
+
+    Order: EVRange's own geometry when the result is real, then the cached
+    OSRM road geometry, then the straight line the stub produces.
+
+    The middle case matters and needs care. A real road line drawn under stub
+    costs looks far more finished than it is, so the caller must keep the
+    placeholder banner on the numbers regardless of what the map shows. The map
+    being right says nothing about the figures beside it.
+    """
+    leg = (api_result.get("routes") or [{}])[0]
+    geom = leg.get("geometry")
+    real_result = api_result.get("source") in ("live", "disk", "memory") \
+        and not api_result.get("stub")
+    if real_result and geom and len(geom.get("coordinates", [])) > 2:
+        return geom, False, ""
+    cached = route_data.road_geometry(route_key)
+    if cached and len(cached.get("coordinates", [])) > 2:
+        return cached, False, (
+            "Road shape from OpenStreetMap. The figures beside it are not from "
+            "the same source.")
+    return geom, True, ""
+
+
 def build_map_figure(geometry, label, *, is_placeholder: bool = False):
     """
     Draw the route. EVRange returns [lon, lat] pairs, Plotly wants separate lat
