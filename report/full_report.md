@@ -45,7 +45,7 @@ This project serves two audiences whose needs differ substantially.
 
 ## 1.4 Deliverables
 
-1. **An interactive dashboard** of seven modules built in Python using Plotly Dash, covering policy tracking, regional comparison, consumer cost comparison, taxi feasibility, national fleet projection, emissions, and historic fuel prices. A route cost map was scoped early in the project but was not built, for the reasons given in Section 8.3, and does not form part of the delivered dashboard.
+1. **An interactive dashboard** of eight modules built in Python using Plotly Dash, covering policy tracking, regional comparison, consumer cost comparison, taxi feasibility, route cost mapping, national fleet projection, emissions, and historic fuel prices. The route cost map was scoped early, set aside when no measured corridor distances existed to populate it, and built once sixteen measured route-taxi runs had been collected. Section 8.3 records what remains open on it.
 2. **A user guide** presenting each module with step-by-step operating instructions, written for a reader with no technical background.
 3. **This report**, presenting methods, results, policy analysis and limitations.
 
@@ -143,9 +143,15 @@ Caribbean Centre for Renewable Energy and Energy Efficiency. (n.d.). *The future
 
 Energy Chamber of Trinidad and Tobago. (2026, May 21). *Gasoline prices rise across most of CARICOM*.
 
+EVRange. (2026). *Physics-based EV range model calibrated on the Jamaican road network* [Unpublished computer software]. Route energy estimates via /api/routing/calculate.
+
 Gao, Z., Lin, Z., LaClair, T. J., Liu, C., Li, J.-M., Birky, A. K., & Ward, J. (2017). Battery capacity and recharging needs for electric buses in city transit service. *Energy, 122*, 588–600.
 
 Government of Jamaica. (2023). *National electric vehicle policy*. Ministry of Energy, Telecommunications and Transport.
+
+Jamaica Observer. (2026, July 24). *TransJamaican Highway toll rates to increase from August 1*. https://www.jamaicaobserver.com/2026/07/24/transjamaican-highway-toll-rates-increase-august-1/
+
+TransJamaican Highway. (2026). *Rates* [Toll rates effective August 1, 2026]. https://www.transjamhighways.com/toll_rates/
 
 Turnbull, K. (2024). *Pioneering electric mobility: A framework for EV battery management in the Caribbean* [Final report]. Department of Physics, University of the West Indies, Mona.
 
@@ -174,7 +180,7 @@ The distinction matters because a reader cannot judge a conclusion without knowi
 
 ## 3.2 Measured Data
 
-**Petrojam reference fuel prices.** A 600-row weekly series covering January 2015 to June 2026 for 87 octane, 90 octane and automotive diesel. This is the ex-refinery reference price and already includes Special Consumption Tax. It is the base for all fuel cost calculations and for the historic price module.
+**Petrojam reference fuel prices.** A 611-row weekly series covering January 2015 to August 2026 for 87 octane, 90 octane and automotive diesel. This is the ex-refinery reference price and already includes Special Consumption Tax. It is the base for all fuel cost calculations and for the historic price module.
 
 **Kingston retail markup survey.** A field survey of 15 Kingston service stations across three dates in June and July 2026, yielding 113 station-date-grade observations. Mean markup above the Petrojam reference was J$29 per litre for 87 octane, J$34 for 90 octane and J$48 for diesel. Station-level markups within the complete-data subset ranged from J$15 to J$65 per litre, a spread of more than fourfold.
 
@@ -195,6 +201,8 @@ The utilisation figures are among the most analytically valuable data obtained. 
 **ATL Automotive.** BYD vehicle pricing confirmed July 2026 for five models, giving the study its only verified new electric vehicle prices.
 
 **JUTC.** Electric bus count of five units, four operational, supplied through the supervisor. The company did not publish energy consumption data from its pilot despite consumption being a stated aim of the trial.
+
+**EVRange.** A physics-based electric vehicle range model built by a colleague from the same field runs, calibrated on BYD Yuan Plus measurements over the T1 highway, Red Hills and Spur Tree Hill (EVRange, 2026). It supplies the distance, duration and energy consumption for each corridor in the Route Cost Map; the cost layer on top of it is this study's. The model is unpublished and runs on its author's own hardware, so the dashboard serves cached responses rather than depending on it being reachable. Its author also supplied start and end coordinates for three measured corridors and a written description of the model, reproduced in Appendix A. Section 5.8 sets out how it is used and what its calibration does and does not cover.
 
 ---
 
@@ -433,7 +441,49 @@ Battery manufacturing is charged as a one-off at period start, using an assumed 
 
 Nineteen countries, fourteen Caribbean. Fields are left empty rather than estimated where no source exists, which is why nine countries appear in the summary table but not on the charts. Caribbean fuel prices all come from a single May 2026 compilation, because pump prices are only comparable if collected on the same date on the same basis.
 
-## 5.8 Implementation
+## 5.8 Route Cost Map
+
+The Route Cost Map costs a single journey over a corridor that was driven during data collection. It joins two layers with different provenance, and the interface labels which is which. Energy over the route comes from EVRange, an external model built by a colleague from the same field runs. Money and emissions are computed by this study from the prices in Sections 5.1 and 5.3.
+
+### 5.8.1 Energy Model
+
+EVRange (2026) is a physics-based range model calibrated on the Jamaican road network. It is unpublished, and the description below is a summary of the account its author supplied for this report (R. Brown, personal communication, August 7, 2026), reproduced in full in Appendix A.
+
+The model divides a route into segments of roughly 500 m on long road steps, or down to individual waypoints on steps shorter than 3 km, and sums the energy demand of each. Per segment it evaluates aerodynamic drag, rolling resistance, the work done against gravity on a climb, and the energy recovered by regenerative braking both on descents and when decelerating to a stop. Cabin cooling is treated as a load that rises with ambient temperature, from nothing at 22 °C to full capacity at 38 °C. Stop-start overhead is represented by an idle fraction tied to segment speed, from 0.35 below 20 km/h down to 0.02 at highway speed.
+
+The physics output is then scaled by a piecewise terrain correction fitted to measured BYD Yuan Plus runs on three Jamaican corridors: the T1 highway, Red Hills, and Spur Tree Hill. On near-flat gradients the correction interpolates between an urban anchor of 0.70, fitted on Kingston runs, and a highway anchor of 1.09, fitted on the T4 run at 83 km/h. The four conditions exposed as controls in the interface act on the model as follows: ambient temperature scales the cooling load; driving mode multiplies the final consumption by 0.93 for eco, 1.00 for normal or 1.10 for sport; cargo mass and passenger count enter the vehicle mass in every force term; and the tyre pressure factor scales the rolling resistance coefficient.
+
+Two points follow from this for how the results should be read. First, the terrain correction was fitted on one vehicle. Results for the BYD Yuan Plus carry the least model uncertainty of anything the module can produce. Results for the Nissan Leaf use the Leaf's own mass and drag terms but inherit a correction fitted on a different car, and the interface says so beside the vehicle selector. Whether the Leaf has a calibration of its own is a question that has been put to the model's author and not yet answered. Second, the model reports energy at the wheels. A charging tariff bills energy into the vehicle, and the difference between the two is charger and pack loss of roughly 10 to 15 per cent, which this study has not measured. No loss factor is applied, so the electric cost is a lower bound and the interface states this beneath every result.
+
+### 5.8.2 Cost and Emissions Layer
+
+For the electric vehicle:
+
+```
+energy (kWh) = distance (km) × consumption (Wh/km) ÷ 1000
+electric cost = energy × charging rate
+```
+
+where the charging rate is the home tariff or the public rate chosen in the global settings, so that the same journey cannot cost a different amount here and in the calculator of Section 5.2. For the petrol comparison:
+
+```
+litres = distance × (L/100km ÷ 100)
+petrol cost = litres × effective retail price
+```
+
+using the effective retail price of Section 5.1 and a Toyota Probox consumption figure that is an editable input, defaulting to 7.6 L/100km combined with 10.7 urban offered as the alternative. Emissions follow Section 5.3. The comparison is asymmetric by construction: the electric figure varies with gradient, speed and temperature through the model, while the petrol figure is one consumption value applied to the whole route. On a steep or congested corridor this understates petrol consumption and therefore understates the saving; on a flat highway run it overstates both. The interface records which petrol figure was used with every result.
+
+### 5.8.3 Tolls
+
+EVRange reports whether a route touches a Highway 2000 toll corridor. The detection is geometric, by bounding boxes over the T1 (Portmore) and T2 (May Pen) corridors, not from a live toll feed, and the model returns only a flag, not an amount or a plaza. Toll cost is therefore this study's addition. The only rate verified is the Portmore plaza Class 1 non-tag rate of J$400, effective 1 August 2026 (Jamaica Observer, 2026; TransJamaican Highway, 2026), and it is applied only on the one preset corridor known to cross that plaza, added equally to both vehicles. A route flagged by the model that is not known to cross Portmore is costed at zero, and the result says so, because the rates at the Vineyards, May Pen and Williamsfield plazas have not been sourced and charging a rate from the wrong plaza would be worse than charging none.
+
+### 5.8.4 Availability and Caching
+
+The model runs on its author's own hardware with no guarantee of uptime, and its author asked that requests be kept under 20 per minute. The dashboard therefore does not depend on the model being reachable. Responses for every preset corridor and vehicle at the default conditions are fetched once, stored in the repository, and served from disk. The model is called live only for input combinations that were not pre-fetched, with calls spaced to stay under the limit across all server processes, and each live response is added to the cache. When neither cache nor model is available, the page shows synthetic placeholder figures under a red banner stating that they must not be quoted. Placeholder output is excluded from the report by a guard in the code, and no figure in this document derives from it.
+
+Corridors are offered as presets rather than through a free-text search, for the reason given in Section 8.3: every corridor on offer corresponds to a run with recorded consumption, so model output can be compared against what the vehicle measured. That comparison depends on the model's server being live and on the author's full run sheet, neither of which had been received at the time of writing, so no such comparison is reported here.
+
+## 5.9 Implementation
 
 Python 3.11 with Plotly Dash. Vehicle data is held in a single module so that prices, battery capacities and maintenance figures cannot drift between modules. Derived quantities such as the manufacturing premium are computed by function rather than stored, so that correcting an input propagates automatically.
 
@@ -760,7 +810,8 @@ Five of these six were caught by checking a figure against its source, or by ask
 
 **Dashboard.**
 
-- Build the Route Cost Map, which was scoped in week 2 as an eighth module and subsequently dropped rather than shipped empty. It was to show operating cost per kilometre across six Kingston route-taxi corridors: Half Way Tree to Papine, Red Hills, Three Miles, Downtown Crossroads, Manor Park, and Backgate to Spanish Town. Two things blocked it. No mapping data source was agreed, and no measured corridor distances were ever collected, so the module could not have been populated without inventing the distances it displayed. The underlying cost per kilometre arithmetic already exists in the Taxi Feasibility Tool, so the work needed is data collection rather than modelling.
+- Settle the consumption basis for the Route Cost Map. The module was scoped in week 2, set aside rather than shipped empty when no measured corridor distances existed, and built once sixteen route-taxi runs had been recorded in a battery electric vehicle over the Kingston corridors named above. It now draws real road geometry for all sixteen runs and reports operating cost per kilometre. What remains open is which distance basis the aggregate consumption figure should rest on. Aggregating energy over the distances recorded in the vehicle gives 173 Wh/km, quoted with a band of 151 to 204 Wh/km reflecting the distance uncertainty discussed in Section 5. Road distances retrieved for the same sixteen runs total 92.2 km against the recorded 80.2 km, 15 per cent higher, and aggregating on those gives 153 Wh/km. That figure falls inside the quoted band, so no result in this report changes on the choice. The discrepancy is nonetheless one-sided rather than symmetric: if the road distances are the more accurate of the two, the central value lies below 173 rather than either side of it, and the band as quoted is correspondingly conservative on the upper side. Resolving this requires either a distance measurement independent of both sources or a decision, with the supervisor, to adopt the road-network basis throughout.
+- Compare EVRange output against the recorded runs. The Route Cost Map is built so that every corridor it offers has a measured consumption to check the model against, but the check itself has not been made: the model's server was not live at the time of writing, and its author's full sheet of runs with coordinates and consumption had not been received. When both arrive, the cache population script prints the model's distance and consumption beside the recorded figures for each run, and the outcome belongs in Section 5.8 rather than here.
 - Add the Chilean benchmark of 9.6 tonnes CO₂ avoided per taxi per year as a validation reference.
 
 **Analysis.**
@@ -776,3 +827,59 @@ Five of these six were caught by checking a figure against its source, or by ask
 The question this study set out to answer was whether Jamaica's 2030 electric vehicle targets are realistic. On the evidence assembled, the targets are not primarily limited by vehicle economics, consumer interest or charger availability, since utilisation of roughly 1% indicates chargers are not the constraint.
 
 They are limited by a bounded incentive, by administrative commitments that have not been delivered, and by an inability to measure progress at all. The most consequential single finding is not any cost or emissions figure. It is that two of the three targets Jamaica set itself cannot be evaluated from anything Jamaica publishes.
+
+---
+
+# Appendix A: The EVRange Energy Model
+
+---
+
+The Route Cost Map (Section 5.8) takes its energy figures from EVRange, an unpublished model built by a colleague from the field runs this study also drew on. Because the model cannot be inspected by a reader, its author's own description is reproduced here in full, as supplied for this report on 7 August 2026 (R. Brown, personal communication, August 7, 2026). Nothing in it has been edited. The interpretation in Section 5.8 is this study's.
+
+## A.1 Model Description, as Supplied
+
+> Energy consumption is computed per micro-segment (approximately 500m spacing on long steps, full waypoint resolution on steps under 3km) using a physics-based model. Each segment calculates aerodynamic drag power (½ρCdAv³), rolling resistance (Crr × m × g × v), gravitational climb power (mg sin θ × v), and regenerative braking recovery from both gravity on descent and kinetic energy at stops. HVAC load is modelled as a function of ambient temperature, ramping from 0W at 22°C to full cooling capacity at 38°C. An idle fraction derived from step speed (0.35 at <20 km/h, down to 0.02 at highway speed) captures stop-start overhead. A piecewise terrain correction function, calibrated from measured BYD Yuan Plus runs on Jamaican roads (T1 highway, Red Hills, Spur Tree Hill), scales the physics output to match observed consumption. At near-flat gradients the correction additionally interpolates between a low-speed urban anchor (0.70, calibrated from Kingston urban runs) and a highway anchor (1.09, calibrated from T4 at 83 km/h). The inputs ambientTempC directly scales HVAC load; drivingMode applies a multiplier of 0.93 (eco), 1.00 (normal), or 1.10 (sport) to final Wh/km; cargoKg and passengerCount enter the mass term in all force calculations; tyrePressureMult scales rolling resistance coefficient.
+
+On toll detection, from the same correspondence:
+
+> It currently detects the T1 (Portmore) and T2 (May Pen) Highway 2000 corridors by bounding box. It returns a boolean, not a toll amount.
+
+The author asked that requests be limited to 20 per minute per IP address, and that the model be cited as: EVRange (2026), physics-based EV range model calibrated on Jamaican road network, unpublished. Route energy estimates via /api/routing/calculate.
+
+## A.2 Interface
+
+The dashboard calls one endpoint, `POST /api/routing/calculate`, from the server side, with the access key held in an environment variable. The request and response fields, as documented by the author, are:
+
+| Request field | Meaning | Dashboard control |
+|---|---|---|
+| `evSpecId` | Vehicle identifier from `/api/ev-models` | Vehicle selector |
+| `startCoords`, `endCoords` | Longitude, latitude | Corridor preset or custom entry |
+| `passengerCount` | Occupants, enters the mass term | Conditions, passengers |
+| `cargoKg` | Load, enters the mass term | Conditions, cargo |
+| `tyrePressureMult` | Scales rolling resistance | Held at 1.0 |
+| `ambientTempC` | Scales cooling load | Conditions, temperature |
+| `drivingMode` | eco, normal or sport multiplier | Conditions, driving mode |
+| `currentSocPct` | Battery state of charge at departure | Battery slider |
+| `returnTrip` | Out and back | Return trip checkbox |
+
+| Response field | Meaning | Where it appears |
+|---|---|---|
+| `evModel`, `batteryUsableKwh` | Vehicle as modelled | Basis panel |
+| `distanceKm`, `durationMin` | Routed distance and time | Distance card |
+| `avgWhkm` | Mean consumption over the route | Electric cost card and basis |
+| `socNeededPct`, `socAfterTripPct` | Battery used and remaining | Battery card |
+| `chargeNeeded`, `chargeWarning` | Whether the trip fits in the charge available | Battery card and warning strip |
+| `hasTolls` | Toll corridor touched, geometric detection | Toll line in the basis panel |
+| `geometry` | Route as a GeoJSON LineString | Map |
+
+## A.3 Corridors Supplied by the Author
+
+Three measured corridors with usable start and end pairs were supplied on 7 August 2026 and are loaded as presets. Coordinates are longitude then latitude, as the model expects.
+
+| Run | Corridor | Start | End |
+|---|---|---|---|
+| T4 | Portmore to UWI Mona, T1 highway | [-76.9876, 17.9488] | [-76.7467, 17.9958] |
+| T7 and T8 | Spur Tree Hill, descent and ascent | [-77.5085, 18.0447] | [-77.4237, 17.9882] |
+| Red Hills | Kingston to Red Hills | [-76.8072, 18.0089] | [-76.8334, 18.0812] |
+
+The author holds further runs with coordinates and measured consumption, which had not been received at the time of writing.

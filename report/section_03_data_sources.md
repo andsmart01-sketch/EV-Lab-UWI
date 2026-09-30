@@ -19,7 +19,7 @@ The distinction matters because a reader cannot judge a conclusion without knowi
 
 ## 3.2 Measured Data
 
-**Petrojam reference fuel prices.** A 600-row weekly series covering January 2015 to June 2026 for 87 octane, 90 octane and automotive diesel. This is the ex-refinery reference price and already includes Special Consumption Tax. It is the base for all fuel cost calculations and for the historic price module.
+**Petrojam reference fuel prices.** A 611-row weekly series covering January 2015 to August 2026 for 87 octane, 90 octane and automotive diesel. This is the ex-refinery reference price and already includes Special Consumption Tax. It is the base for all fuel cost calculations and for the historic price module.
 
 **Kingston retail markup survey.** A field survey of 15 Kingston service stations across three dates in June and July 2026, yielding 113 station-date-grade observations. Mean markup above the Petrojam reference was J$29 per litre for 87 octane, J$34 for 90 octane and J$48 for diesel. Station-level markups within the complete-data subset ranged from J$15 to J$65 per litre, a spread of more than fourfold.
 
@@ -40,6 +40,8 @@ The utilisation figures are among the most analytically valuable data obtained. 
 **ATL Automotive.** BYD vehicle pricing confirmed July 2026 for five models, giving the study its only verified new electric vehicle prices.
 
 **JUTC.** Electric bus count of five units, four operational, supplied through the supervisor. The company did not publish energy consumption data from its pilot despite consumption being a stated aim of the trial.
+
+**EVRange.** A physics-based electric vehicle range model built by a colleague from the same field runs, calibrated on BYD Yuan Plus measurements over the T1 highway, Red Hills and Spur Tree Hill (EVRange, 2026). It supplies the distance, duration and energy consumption for each corridor in the Route Cost Map; the cost layer on top of it is this study's. The model is unpublished and runs on its author's own hardware, so the dashboard serves cached responses rather than depending on it being reachable. Its author also supplied start and end coordinates for three measured corridors and a written description of the model, reproduced in Appendix A. Section 5.8 sets out how it is used and what its calibration does and does not cover.
 
 ---
 

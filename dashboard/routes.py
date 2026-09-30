@@ -38,6 +38,10 @@ MEASURED_ROUTES = {
         "note": "Highway run. Calibration anchor for the 1.09 highway "
                 "correction factor at 83 km/h.",
         "source": "EVRange measured run T4, Rohan, 7 August 2026",
+        # The only preset known to pass a plaza whose rate has been sourced.
+        # EVRange says only that a toll corridor was touched, not which one,
+        # so the plaza has to be declared here. See toll_cost_jmd().
+        "toll_plaza": "portmore_class1",
     },
     "t7-spur-tree": {
         "label": "Spur Tree Hill (descent and ascent)",
@@ -530,25 +534,45 @@ TOLL_RATES_JMD = {
 
 TOLLS_PENDING = (
     "Rates for the Vineyards, May Pen and Williamsfield plazas, and for "
-    "vehicle classes above Class 1, are not yet sourced. A route flagged "
-    "hasTolls that does not pass Portmore will currently be costed at zero."
+    "vehicle classes above Class 1, are not yet sourced."
+)
+
+TOLL_DETECTION_NOTE = (
+    "Toll detection is geometric, from EVRange bounding boxes over the T1 "
+    "and T2 corridors, not from a live toll feed."
 )
 
 
-def toll_cost_jmd(has_tolls: bool, return_trip: bool = False) -> tuple[float, str]:
+def toll_cost_jmd(has_tolls: bool, return_trip: bool = False,
+                  plaza: str | None = None) -> tuple[float, str]:
     """
     Toll cost for a route, with the basis returned alongside so the UI can
     show it rather than presenting a bare number.
 
-    Only the Portmore Class 1 rate is verified, so this deliberately returns a
-    known-incomplete figure with an explicit caveat rather than a confident one.
+    EVRange returns a boolean, not a corridor, so it cannot say which plaza
+    was passed. The caller supplies `plaza` where the route is known to pass
+    one whose rate has been sourced (currently only the T4 preset, which
+    crosses Portmore). A route that is flagged hasTolls with no known plaza
+    is costed at zero and says so, rather than being charged a rate from a
+    different plaza. That understates the cost of such a route; the
+    alternative was to overstate it with a number from the wrong place.
     """
     if not has_tolls:
-        return 0.0, "No toll corridor detected on this route."
-    r = TOLL_RATES_JMD["portmore_class1"]
+        return 0.0, f"No toll corridor detected on this route. {TOLL_DETECTION_NOTE}"
+    r = TOLL_RATES_JMD.get(plaza or "")
+    if r is None:
+        # The flag is not treated as evidence of a toll. When the cache was
+        # first populated on 16 September 2026 it was raised on ten of the
+        # nineteen preset routes, nine of them Kingston runs and the Red
+        # Hills climb, none of which touch a Highway 2000 toll road. The T1
+        # bounding box evidently covers a good part of west Kingston.
+        return 0.0, (
+            "EVRange's bounding-box toll detection flagged this route. That "
+            "flag is known to be raised on Kingston routes that touch no "
+            "toll road, so it is not treated as evidence of a toll and no "
+            f"toll has been added. {TOLL_DETECTION_NOTE} {TOLLS_PENDING}")
     amount = r["amount"] * (2 if return_trip else 1)
     basis = (f"J${r['amount']:,.0f} {r['plaza']} {r['class']}"
-             f"{', each way' if return_trip else ''}. {r['caveat']} "
-             f"Detection is geometric, from EVRange bounding boxes, not a live "
-             f"toll feed. {TOLLS_PENDING}")
+             f"{', each way' if return_trip else ''}, added to both vehicles. "
+             f"{r['caveat']} {TOLL_DETECTION_NOTE} {TOLLS_PENDING}")
     return amount, basis

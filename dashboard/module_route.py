@@ -25,13 +25,31 @@ import routes as route_data
 import route_costs
 from routing_client import calculate_route, cache_status
 
-# EVRange model identifiers. Rohan supplies these from /api/ev-models once the
-# host is live; until then they are placeholders and every lookup falls through
-# to the stub, which is the intended behaviour rather than a failure.
+# EVRange model identifiers, from /api/ev-models on 16 September 2026. The full
+# list is saved in data/evrange_models.json. If Rohan renames anything, run
+# python scripts/fetch_evrange_cache.py --list-models and update here.
+#
+# Mapping notes, because the two datasets do not describe identical cars:
+#   byd-yuan-plus-new -> byd-yuan-plus-2024. EVRange lists 55.4 kWh usable.
+#       data/vehicles.py holds the Standard Range at 49.92 kWh nominal, which
+#       is the variant ATL priced. Usable cannot exceed nominal, so EVRange's
+#       entry is presumably the 60.48 kWh Extended Range. Energy and cost are
+#       unaffected (distance x Wh/km); socNeededPct and socAfterTripPct are
+#       for the larger pack. Raised with Rohan, unresolved.
+#   nissan-leaf-used -> nissan-leaf-40-2022, 36 kWh usable. Same 40 kWh pack
+#       as the 2018-2020 used car in data/vehicles.py; year differs, the
+#       generation and mass do not. The 62 kWh e+ is deliberately not used.
 EV_SPEC_IDS = {
-    "byd-yuan-plus-new": None,   # calibration vehicle for the terrain correction
-    "nissan-leaf-used":  None,   # present in EVRange, calibration status unconfirmed
+    "byd-yuan-plus-new": "byd-yuan-plus-2024",   # calibration vehicle for the terrain correction
+    "nissan-leaf-used":  "nissan-leaf-40-2022",  # present in EVRange, calibration status unconfirmed
 }
+
+# How Rohan asked to be cited, verbatim from his message of 7 August 2026.
+# Shown on the page and used in the report. APA form is in report Section 2.
+EVRANGE_CITATION = (
+    "EVRange (2026), physics-based EV range model calibrated on Jamaican road "
+    "network, unpublished. Route energy estimates via /api/routing/calculate."
+)
 
 CALIBRATION_NOTE = {
     "byd-yuan-plus-new": (
@@ -415,7 +433,19 @@ def fetch_route(route_key, vehicle_key, *, soc, passengers, cargo, temp,
     r = route_data.resolve_route(route_key)
     if r is None:
         raise KeyError(f"unknown route {route_key!r}")
-    spec_id = EV_SPEC_IDS.get(vehicle_key) or f"PENDING:{vehicle_key}"
+    spec_id = EV_SPEC_IDS.get(vehicle_key)
+    if spec_id is None:
+        # No point spending one of Rohan's twenty requests a minute on an id
+        # the API cannot know. Serve the stub and say why. The placeholder id
+        # still keys the cache, so the memory/disk path behaves the same.
+        result = calculate_route(
+            f"PENDING:{vehicle_key}", r["start"], r["end"], allow_live=False,
+            currentSocPct=soc, passengerCount=passengers, cargoKg=cargo,
+            ambientTempC=temp, drivingMode=mode, returnTrip=bool(return_trip))
+        if result["source"] == "stub":
+            result["note"] = ("no evSpecId configured for this vehicle yet, "
+                              "see EV_SPEC_IDS in module_route.py")
+        return result
     return calculate_route(
         spec_id, r["start"], r["end"],
         currentSocPct=soc, passengerCount=passengers, cargoKg=cargo,
@@ -443,8 +473,31 @@ def build_cards(leg, ev, ice, cmp_):
     saving = cmp_["saving_jmd"]
     win_colour = "#1A7A6E" if saving > 0 else "#C55A11"
     pct = f"{cmp_['saving_pct']:.0f}% cheaper" if cmp_["saving_pct"] is not None else ""
+
+    # EVRange says whether the trip fits in the battery as charged. That is
+    # the one thing on this page a driver actually needs to know before
+    # leaving, so it gets its own treatment rather than a negative number in
+    # a corner. socAfterTripPct is what the API returns; it can be negative
+    # when the trip does not fit, and a negative "left on arrival" reads as a
+    # bug rather than a warning.
+    charge_needed = bool(leg.get("chargeNeeded"))
+    soc_after = leg.get("socAfterTripPct", 0) or 0
+    if charge_needed or soc_after < 0:
+        batt_sub = "Does not fit. Charge before or during this trip."
+        batt_colour = "#C0392B"
+    else:
+        batt_sub = f"{soc_after:,.1f}% left on arrival"
+        batt_colour = "#2E75B6"
+
+    # ev.distance_km is the costed trip distance: doubled for a return trip,
+    # while leg['distanceKm'] is one direction. See build_costs.
+    is_return = ev.distance_km > leg["distanceKm"] * 1.5
     cards = [
-        _card("Distance", f"{leg['distanceKm']:,.1f} km",
+        _card("Distance",
+              f"{ev.distance_km:,.1f} km",
+              (f"{leg['distanceKm']:,.1f} km each way, about "
+               f"{leg.get('durationMin', 0):,.0f} minutes per direction")
+              if is_return else
               f"About {leg.get('durationMin', 0):,.0f} minutes", "#2E75B6"),
         _card("Electric", f"J${ev.total_cost:,.0f}",
               f"J${ev.cost_per_km:,.2f}/km at {leg['avgWhkm']:,.0f} Wh/km",
@@ -454,49 +507,110 @@ def build_cards(leg, ev, ice, cmp_):
               "#C55A11"),
         _card("Saving per trip", f"J${saving:,.0f}", pct, win_colour),
         _card("Battery used", f"{leg.get('socNeededPct', 0):,.1f}%",
-              f"{leg.get('socAfterTripPct', 0):,.1f}% left on arrival",
-              "#2E75B6"),
+              batt_sub, batt_colour),
         _card("CO2 avoided", f"{cmp_['co2_saving_kg']:,.1f} kg",
               (f"{cmp_['co2_saving_pct']:.0f}% less than petrol"
                if cmp_["co2_saving_pct"] is not None else ""), "#1A7A6E"),
     ]
-    return html.Div(cards, style={"display": "flex", "gap": "10px",
-                                  "flexWrap": "wrap"})
+    row = html.Div(cards, style={"display": "flex", "gap": "10px",
+                                 "flexWrap": "wrap"})
+
+    # chargeWarning is free text from the model. Shown verbatim when present,
+    # since it is the model's own statement about its result. The stub sets
+    # it to a "do not quote" notice, which is also worth showing.
+    warning = leg.get("chargeWarning")
+    if charge_needed and not warning:
+        warning = ("The battery does not hold enough charge for this trip at "
+                   "the starting level selected.")
+    if not warning:
+        return row
+    strip = html.Div(warning, style={
+        "backgroundColor": "#FFF4CC", "border": "1px solid #E8D48A",
+        "color": "#8A6D00", "padding": "8px 12px", "borderRadius": "6px",
+        "fontSize": "13px", "marginTop": "10px", "lineHeight": "1.45"})
+    return html.Div([row, strip])
 
 
-def build_basis(ev, ice):
+def model_basis_lines(api_result) -> list[str]:
+    """
+    What EVRange says it modelled. The vehicle name and usable capacity come
+    back in every response, and showing them is the cheapest check that the
+    evSpecId mapping points at the car the dropdown says it does.
+    """
+    if api_result.get("stub"):
+        return []
+    lines = []
+    model = api_result.get("evModel")
+    kwh = api_result.get("batteryUsableKwh")
+    if model or kwh:
+        lines.append(
+            "EVRange modelled "
+            + (f"{model}" if model else "the selected vehicle")
+            + (f" with {kwh:,.1f} kWh usable" if isinstance(kwh, (int, float)) else "")
+            + ". Energy is computed per road segment from drag, rolling "
+              "resistance, gradient and regenerative braking, with a terrain "
+              "correction calibrated on BYD Yuan Plus runs on Jamaican roads.")
+    return lines
+
+
+def build_basis(ev, ice, api_result=None):
     """
     Every figure above, shown as the arithmetic that produced it.
 
     This is not decoration. The module joins someone else's energy model to
     this project's prices, and a reader has to be able to see which half a
-    number came from.
+    number came from. The citation line at the bottom is how the model's
+    author asked to be credited, and it stays on the page whether the figures
+    are live, cached or placeholder.
     """
-    items = [html.Li(t, style={"marginBottom": "5px"})
-             for t in (ev.basis + [b for b in ice.basis if b not in ev.basis])]
-    return html.Details([
-        html.Summary("How these figures were calculated",
-                     style={"fontSize": "14px", "fontWeight": "600",
-                            "cursor": "pointer", "color": "#2E75B6"}),
-        html.Ul(items, style={"fontSize": "13px", "color": "#5B7A70",
-                              "lineHeight": "1.55", "marginTop": "10px",
-                              "paddingLeft": "20px"}),
-    ], style={"borderTop": "1px solid #eee", "paddingTop": "10px"})
+    lines = (model_basis_lines(api_result) if api_result else []) + ev.basis
+    lines += [b for b in ice.basis if b not in lines]
+    items = [html.Li(t, style={"marginBottom": "5px"}) for t in lines]
+    return html.Div([
+        html.Details([
+            html.Summary("How these figures were calculated",
+                         style={"fontSize": "14px", "fontWeight": "600",
+                                "cursor": "pointer", "color": "#2E75B6"}),
+            html.Ul(items, style={"fontSize": "13px", "color": "#5B7A70",
+                                  "lineHeight": "1.55", "marginTop": "10px",
+                                  "paddingLeft": "20px"}),
+        ], style={"borderTop": "1px solid #eee", "paddingTop": "10px"}),
+        html.P(["Energy model: ", EVRANGE_CITATION,
+                " Cost and emissions layer: this project, UWI Mona EV Lab, 2026."],
+               style={"fontSize": "12px", "color": "#8A9E97",
+                      "margin": "10px 0 0", "lineHeight": "1.45",
+                      "borderTop": "1px solid #eee", "paddingTop": "8px"}),
+    ])
 
 
 def build_costs(api_result, *, charge_rate, rate_label, pump_price,
                 price_label, ice_consumption, grid_intensity, co2_per_litre,
-                return_trip):
-    """Join the API's energy figures to this project's prices."""
+                return_trip, toll_plaza=None):
+    """
+    Join the API's energy figures to this project's prices.
+
+    toll_plaza names the plaza a preset is known to pass, from routes.py.
+    EVRange only reports that a toll corridor was touched, so without it a
+    flagged route is costed at zero with an explanation. See toll_cost_jmd().
+    """
     leg = api_result["routes"][0]
+    # EVRange reports distanceKm and avgWhkm PER DIRECTION even when
+    # returnTrip is true; only socNeededPct covers the whole round trip.
+    # Verified against the live API on 16 September 2026: T4 one way 35.1 km
+    # and 6.0 per cent, return 35.1 km and 11.9 per cent. Costing on
+    # distanceKm alone would therefore halve a return trip's cost while the
+    # battery card showed the full round trip, so the distance is doubled
+    # here and nowhere else.
+    trip_km = leg["distanceKm"] * (2 if return_trip else 1)
     toll, toll_basis = route_data.toll_cost_jmd(
-        leg.get("hasTolls", False), return_trip=bool(return_trip))
+        leg.get("hasTolls", False), return_trip=bool(return_trip),
+        plaza=toll_plaza)
     ev = route_costs.ev_route_cost(
-        leg["distanceKm"], leg["avgWhkm"], charge_rate,
+        trip_km, leg["avgWhkm"], charge_rate,
         grid_intensity_kg_per_kwh=grid_intensity,
         toll_jmd=toll, toll_basis=toll_basis, rate_label=rate_label)
     ice = route_costs.ice_route_cost(
-        leg["distanceKm"], ice_consumption, pump_price,
+        trip_km, ice_consumption, pump_price,
         co2_kg_per_litre=co2_per_litre,
         toll_jmd=toll, toll_basis=toll_basis, price_label=price_label)
     return ev, ice, route_costs.compare(ev, ice), leg

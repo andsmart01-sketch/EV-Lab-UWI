@@ -1,7 +1,9 @@
-streamlit>=1.35.0
-pandas>=2.2.0
-plotly>=5.22.0
-folium>=0.17.0
-streamlit-folium>=0.20.0
-requests>=2.31.0
-openpyxl>=3.1.2
+# Not the dependency list. Use the one at the repository root:
+#
+#     pip install -r requirements.txt
+#
+# This file previously listed streamlit, folium and streamlit-folium, which
+# are left over from the original framework choice. Nothing in this codebase
+# imports any of them. The dashboard is Plotly Dash. Installing from this file
+# gave you the wrong stack and a confusing failure at startup, so it is kept
+# only as a signpost.

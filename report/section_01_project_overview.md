@@ -45,7 +45,7 @@ This project serves two audiences whose needs differ substantially.
 
 ## 1.4 Deliverables
 
-1. **An interactive dashboard** of seven modules built in Python using Plotly Dash, covering policy tracking, regional comparison, consumer cost comparison, taxi feasibility, national fleet projection, emissions, and historic fuel prices. A route cost map was scoped early in the project but was not built, for the reasons given in Section 8.3, and does not form part of the delivered dashboard.
+1. **An interactive dashboard** of eight modules built in Python using Plotly Dash, covering policy tracking, regional comparison, consumer cost comparison, taxi feasibility, route cost mapping, national fleet projection, emissions, and historic fuel prices. The route cost map was scoped early, set aside when no measured corridor distances existed to populate it, and built once sixteen measured route-taxi runs had been collected. Section 8.3 records what remains open on it.
 2. **A user guide** presenting each module with step-by-step operating instructions, written for a reader with no technical background.
 3. **This report**, presenting methods, results, policy analysis and limitations.
 

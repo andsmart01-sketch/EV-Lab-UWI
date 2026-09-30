@@ -66,9 +66,15 @@ Caribbean Centre for Renewable Energy and Energy Efficiency. (n.d.). *The future
 
 Energy Chamber of Trinidad and Tobago. (2026, May 21). *Gasoline prices rise across most of CARICOM*.
 
+EVRange. (2026). *Physics-based EV range model calibrated on the Jamaican road network* [Unpublished computer software]. Route energy estimates via /api/routing/calculate.
+
 Gao, Z., Lin, Z., LaClair, T. J., Liu, C., Li, J.-M., Birky, A. K., & Ward, J. (2017). Battery capacity and recharging needs for electric buses in city transit service. *Energy, 122*, 588–600.
 
 Government of Jamaica. (2023). *National electric vehicle policy*. Ministry of Energy, Telecommunications and Transport.
+
+Jamaica Observer. (2026, July 24). *TransJamaican Highway toll rates to increase from August 1*. https://www.jamaicaobserver.com/2026/07/24/transjamaican-highway-toll-rates-increase-august-1/
+
+TransJamaican Highway. (2026). *Rates* [Toll rates effective August 1, 2026]. https://www.transjamhighways.com/toll_rates/
 
 Turnbull, K. (2024). *Pioneering electric mobility: A framework for EV battery management in the Caribbean* [Final report]. Department of Physics, University of the West Indies, Mona.
 

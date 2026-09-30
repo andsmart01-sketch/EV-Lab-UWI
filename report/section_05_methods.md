@@ -85,6 +85,48 @@ Battery manufacturing is charged as a one-off at period start, using an assumed 
 
 Nineteen countries, fourteen Caribbean. Fields are left empty rather than estimated where no source exists, which is why nine countries appear in the summary table but not on the charts. Caribbean fuel prices all come from a single May 2026 compilation, because pump prices are only comparable if collected on the same date on the same basis.
 
-## 5.8 Implementation
+## 5.8 Route Cost Map
+
+The Route Cost Map costs a single journey over a corridor that was driven during data collection. It joins two layers with different provenance, and the interface labels which is which. Energy over the route comes from EVRange, an external model built by a colleague from the same field runs. Money and emissions are computed by this study from the prices in Sections 5.1 and 5.3.
+
+### 5.8.1 Energy Model
+
+EVRange (2026) is a physics-based range model calibrated on the Jamaican road network. It is unpublished, and the description below is a summary of the account its author supplied for this report (R. Brown, personal communication, August 7, 2026), reproduced in full in Appendix A.
+
+The model divides a route into segments of roughly 500 m on long road steps, or down to individual waypoints on steps shorter than 3 km, and sums the energy demand of each. Per segment it evaluates aerodynamic drag, rolling resistance, the work done against gravity on a climb, and the energy recovered by regenerative braking both on descents and when decelerating to a stop. Cabin cooling is treated as a load that rises with ambient temperature, from nothing at 22 °C to full capacity at 38 °C. Stop-start overhead is represented by an idle fraction tied to segment speed, from 0.35 below 20 km/h down to 0.02 at highway speed.
+
+The physics output is then scaled by a piecewise terrain correction fitted to measured BYD Yuan Plus runs on three Jamaican corridors: the T1 highway, Red Hills, and Spur Tree Hill. On near-flat gradients the correction interpolates between an urban anchor of 0.70, fitted on Kingston runs, and a highway anchor of 1.09, fitted on the T4 run at 83 km/h. The four conditions exposed as controls in the interface act on the model as follows: ambient temperature scales the cooling load; driving mode multiplies the final consumption by 0.93 for eco, 1.00 for normal or 1.10 for sport; cargo mass and passenger count enter the vehicle mass in every force term; and the tyre pressure factor scales the rolling resistance coefficient.
+
+Two points follow from this for how the results should be read. First, the terrain correction was fitted on one vehicle. Results for the BYD Yuan Plus carry the least model uncertainty of anything the module can produce. Results for the Nissan Leaf use the Leaf's own mass and drag terms but inherit a correction fitted on a different car, and the interface says so beside the vehicle selector. Whether the Leaf has a calibration of its own is a question that has been put to the model's author and not yet answered. Second, the model reports energy at the wheels. A charging tariff bills energy into the vehicle, and the difference between the two is charger and pack loss of roughly 10 to 15 per cent, which this study has not measured. No loss factor is applied, so the electric cost is a lower bound and the interface states this beneath every result.
+
+### 5.8.2 Cost and Emissions Layer
+
+For the electric vehicle:
+
+```
+energy (kWh) = distance (km) × consumption (Wh/km) ÷ 1000
+electric cost = energy × charging rate
+```
+
+where the charging rate is the home tariff or the public rate chosen in the global settings, so that the same journey cannot cost a different amount here and in the calculator of Section 5.2. For the petrol comparison:
+
+```
+litres = distance × (L/100km ÷ 100)
+petrol cost = litres × effective retail price
+```
+
+using the effective retail price of Section 5.1 and a Toyota Probox consumption figure that is an editable input, defaulting to 7.6 L/100km combined with 10.7 urban offered as the alternative. Emissions follow Section 5.3. The comparison is asymmetric by construction: the electric figure varies with gradient, speed and temperature through the model, while the petrol figure is one consumption value applied to the whole route. On a steep or congested corridor this understates petrol consumption and therefore understates the saving; on a flat highway run it overstates both. The interface records which petrol figure was used with every result.
+
+### 5.8.3 Tolls
+
+EVRange reports whether a route touches a Highway 2000 toll corridor. The detection is geometric, by bounding boxes over the T1 (Portmore) and T2 (May Pen) corridors, not from a live toll feed, and the model returns only a flag, not an amount or a plaza. Toll cost is therefore this study's addition. The only rate verified is the Portmore plaza Class 1 non-tag rate of J$400, effective 1 August 2026 (Jamaica Observer, 2026; TransJamaican Highway, 2026), and it is applied only on the one preset corridor known to cross that plaza, added equally to both vehicles. A route flagged by the model that is not known to cross Portmore is costed at zero, and the result says so, because the rates at the Vineyards, May Pen and Williamsfield plazas have not been sourced and charging a rate from the wrong plaza would be worse than charging none.
+
+### 5.8.4 Availability and Caching
+
+The model runs on its author's own hardware with no guarantee of uptime, and its author asked that requests be kept under 20 per minute. The dashboard therefore does not depend on the model being reachable. Responses for every preset corridor and vehicle at the default conditions are fetched once, stored in the repository, and served from disk. The model is called live only for input combinations that were not pre-fetched, with calls spaced to stay under the limit across all server processes, and each live response is added to the cache. When neither cache nor model is available, the page shows synthetic placeholder figures under a red banner stating that they must not be quoted. Placeholder output is excluded from the report by a guard in the code, and no figure in this document derives from it.
+
+Corridors are offered as presets rather than through a free-text search, for the reason given in Section 8.3: every corridor on offer corresponds to a run with recorded consumption, so model output can be compared against what the vehicle measured. That comparison depends on the model's server being live and on the author's full run sheet, neither of which had been received at the time of writing, so no such comparison is reported here.
+
+## 5.9 Implementation
 
 Python 3.11 with Plotly Dash. Vehicle data is held in a single module so that prices, battery capacities and maintenance figures cannot drift between modules. Derived quantities such as the manufacturing premium are computed by function rather than stored, so that correcting an input propagates automatically.

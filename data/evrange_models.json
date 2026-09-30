@@ -1,0 +1,118 @@
+{
+  "endpoint": "/api/ev-models",
+  "fetched_at": "2026-09-16T19:53:23+00:00",
+  "response": [
+    {
+      "batteryUsableKwh": 55.4,
+      "id": "byd-atto3-2023",
+      "make": "BYD",
+      "model": "Atto 3",
+      "year": 2023
+    },
+    {
+      "batteryUsableKwh": 40.9,
+      "id": "byd-dolphin-2023",
+      "make": "BYD",
+      "model": "Dolphin",
+      "year": 2023
+    },
+    {
+      "batteryUsableKwh": 77,
+      "id": "byd-han-2023",
+      "make": "BYD",
+      "model": "Han",
+      "year": 2023
+    },
+    {
+      "batteryUsableKwh": 75,
+      "id": "byd-seal-2023",
+      "make": "BYD",
+      "model": "Seal",
+      "year": 2023
+    },
+    {
+      "batteryUsableKwh": 55.4,
+      "id": "byd-yuan-plus-2024",
+      "make": "BYD",
+      "model": "Yuan Plus",
+      "year": 2024
+    },
+    {
+      "batteryUsableKwh": 60,
+      "id": "chevrolet-bolt-2023",
+      "make": "Chevrolet",
+      "model": "Bolt EV",
+      "year": 2023
+    },
+    {
+      "batteryUsableKwh": 79,
+      "id": "honda-prologue-2024",
+      "make": "Honda",
+      "model": "Prologue",
+      "year": 2024
+    },
+    {
+      "batteryUsableKwh": 72.6,
+      "id": "hyundai-ioniq5-2023",
+      "make": "Hyundai",
+      "model": "Ioniq 5",
+      "year": 2023
+    },
+    {
+      "batteryUsableKwh": 74,
+      "id": "kia-ev6-2023",
+      "make": "Kia",
+      "model": "EV6",
+      "year": 2023
+    },
+    {
+      "batteryUsableKwh": 49,
+      "id": "mg-zs-ev-2023",
+      "make": "MG",
+      "model": "ZS EV",
+      "year": 2023
+    },
+    {
+      "batteryUsableKwh": 28.9,
+      "id": "mini-electric-2023",
+      "make": "MINI",
+      "model": "Cooper SE",
+      "year": 2023
+    },
+    {
+      "batteryUsableKwh": 36,
+      "id": "nissan-leaf-40-2022",
+      "make": "Nissan",
+      "model": "Leaf 40kWh",
+      "year": 2022
+    },
+    {
+      "batteryUsableKwh": 56.5,
+      "id": "nissan-leaf-62-2022",
+      "make": "Nissan",
+      "model": "Leaf e+ 62kWh",
+      "year": 2022
+    },
+    {
+      "batteryUsableKwh": 75,
+      "id": "tesla-model3-lr-2023",
+      "make": "Tesla",
+      "model": "Model 3 LR",
+      "year": 2023
+    },
+    {
+      "batteryUsableKwh": 52.5,
+      "id": "tesla-model3-sr-2023",
+      "make": "Tesla",
+      "model": "Model 3 SR",
+      "year": 2023
+    },
+    {
+      "batteryUsableKwh": 77,
+      "id": "volkswagen-id4-2023",
+      "make": "Volkswagen",
+      "model": "ID.4",
+      "year": 2023
+    }
+  ]
+}

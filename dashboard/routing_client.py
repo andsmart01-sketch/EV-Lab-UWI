@@ -23,9 +23,12 @@ buildable. Every result carries a `source` field, stub results additionally
 carry `stub=True`, and `assert_reportable()` raises on anything that is not
 live or disk. Call it before any figure that will be quoted.
 
-Configuration, both from the environment, never committed:
-    EVRANGE_API_URL   e.g. https://<whatever Rohan sends>
-    EVRANGE_API_KEY   the x-api-key value
+Configuration:
+    EVRANGE_API_KEY   the x-api-key value. From the environment, never
+                      committed. Without it no live call is made.
+    EVRANGE_API_URL   optional override of DEFAULT_API_URL below, which is the
+                      permanent named-tunnel hostname Rohan supplied on
+                      16 September 2026. Not secret, so it lives here.
 
 Citation: EVRange (2026), physics-based EV range model calibrated on the
 Jamaican road network, unpublished. Route energy estimates via
@@ -34,6 +37,7 @@ Jamaican road network, unpublished. Route energy estimates via
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import json
 import os
@@ -48,15 +52,36 @@ import requests
 # Deliberately not a dotted directory: data/.http_cache/ is gitignored and this
 # one must not be.
 CACHE_DIR = Path(__file__).resolve().parent.parent / "data" / "evrange_cache"
-CACHE_DIR.mkdir(parents=True, exist_ok=True)
+try:
+    CACHE_DIR.mkdir(parents=True, exist_ok=True)
+except OSError:
+    # A read-only deployment must not stop the dashboard importing. Reads
+    # still work if the directory was committed; writes are skipped below.
+    pass
+
+# Rohan's permanent named Cloudflare Tunnel hostname, supplied 16 September
+# 2026. EVRANGE_API_URL in the environment overrides it if it ever changes.
+DEFAULT_API_URL = "https://api.evrange.dpdns.org"
 
 ENDPOINT_PATH = "/api/routing/calculate"
+MODELS_PATH = "/api/ev-models"
 
 # Rohan's documented limit is 20 requests per minute per IP. Three seconds
 # between live calls keeps us under it without needing a token bucket, and the
 # cache means we rarely get near it anyway.
+#
+# The limit is per IP, and a gunicorn deployment runs several worker
+# processes behind one IP. A lock in this process only paces this process, so
+# four workers could each make a call every three seconds and together send
+# eighty a minute. So the spacing is enforced across processes: a lock file
+# in the cache directory serialises the check-sleep-call sequence, and the
+# timestamp of the last call is the lock file's own mtime. Tested with two
+# processes hammering uncached routes: calls come out evenly spaced rather
+# than in pairs. On a platform with no file locking it degrades to
+# per-process spacing, and a 429 is handled gracefully in any case.
 MIN_LIVE_INTERVAL_S = 3.0
 REQUEST_TIMEOUT_S = 20.0
+_LAST_CALL_FILE = CACHE_DIR / ".last_live_call"
 
 _last_live_call = 0.0
 _rate_lock = threading.Lock()
@@ -85,9 +110,15 @@ class NotReportable(RuntimeError):
 
 
 def _configured() -> tuple[str | None, str | None]:
-    url = os.environ.get("EVRANGE_API_URL", "").strip().rstrip("/")
+    url = os.environ.get("EVRANGE_API_URL", "").strip().rstrip("/") or DEFAULT_API_URL
     key = os.environ.get("EVRANGE_API_KEY", "").strip()
     return (url or None), (key or None)
+
+
+def _not_configured_reason(url, key) -> str:
+    if not key:
+        return "EVRANGE_API_KEY not set"
+    return "EVRANGE_API_URL not set"
 
 
 def build_body(ev_spec_id: str, start_coords, end_coords, **overrides) -> dict:
@@ -186,29 +217,87 @@ def _write_disk(key: str, body: dict, response: dict) -> None:
         pass
 
 
+def _shared_last_call() -> float:
+    """Wall-clock time of the last live call by ANY process, or 0."""
+    try:
+        return _LAST_CALL_FILE.stat().st_mtime
+    except OSError:
+        return 0.0
+
+
+def _record_shared_call() -> None:
+    try:
+        _LAST_CALL_FILE.touch(exist_ok=True)
+        os.utime(_LAST_CALL_FILE, None)
+    except OSError:
+        pass
+
+
+@contextlib.contextmanager
+def _shared_lock():
+    """
+    Exclusive lock on the timestamp file, held across processes.
+
+    fcntl on Linux and macOS, which is where gunicorn runs; msvcrt on Windows,
+    which is the development laptop and single-process anyway. If the file
+    cannot be opened or locked, the caller proceeds with in-process spacing
+    only, because a rate limit is not worth failing a request over.
+    """
+    try:
+        fh = open(_LAST_CALL_FILE, "a+")
+    except OSError:
+        yield
+        return
+    unlock = None
+    try:
+        try:
+            import fcntl
+            fcntl.flock(fh.fileno(), fcntl.LOCK_EX)
+            unlock = lambda: fcntl.flock(fh.fileno(), fcntl.LOCK_UN)
+        except ImportError:
+            try:
+                import msvcrt
+                fh.seek(0)
+                msvcrt.locking(fh.fileno(), msvcrt.LK_LOCK, 1)
+                unlock = lambda: (fh.seek(0),
+                                  msvcrt.locking(fh.fileno(), msvcrt.LK_UNLCK, 1))
+            except (ImportError, OSError):
+                pass
+        except OSError:
+            pass
+        yield
+    finally:
+        if unlock is not None:
+            try:
+                unlock()
+            except OSError:
+                pass
+        fh.close()
+
+
 def _throttle() -> None:
     global _last_live_call
-    with _rate_lock:
-        wait = MIN_LIVE_INTERVAL_S - (time.monotonic() - _last_live_call)
+    with _rate_lock, _shared_lock():
+        # In-process spacing uses the monotonic clock; cross-process spacing
+        # uses the file's mtime, which is wall-clock. Take the longer wait.
+        # The sleep happens while holding the lock, which is the point: only
+        # one process in the deployment is inside this block at a time, so
+        # the interval between any two live calls is at least the minimum.
+        wait_local = MIN_LIVE_INTERVAL_S - (time.monotonic() - _last_live_call)
+        wait_shared = MIN_LIVE_INTERVAL_S - (time.time() - _shared_last_call())
+        wait = max(wait_local, wait_shared)
         if wait > 0:
-            time.sleep(wait)
+            time.sleep(min(wait, MIN_LIVE_INTERVAL_S))
         _last_live_call = time.monotonic()
+        _record_shared_call()
 
 
-def _call_live(body: dict) -> tuple[dict | None, str]:
-    url, key = _configured()
-    if not url or not key:
-        return None, "not configured"
-    _throttle()
-    try:
-        r = requests.post(
-            url + ENDPOINT_PATH,
-            headers={"Content-Type": "application/json", "x-api-key": key},
-            json=body,
-            timeout=REQUEST_TIMEOUT_S,
-        )
-    except requests.RequestException as e:
-        return None, f"unreachable: {type(e).__name__}"
+def _headers(key: str) -> dict:
+    return {"Content-Type": "application/json", "x-api-key": key}
+
+
+def _classify(r) -> tuple[dict | None, str]:
+    """Turn an HTTP response into (json_or_None, reason)."""
     if r.status_code == 429:
         return None, "rate limited"
     if r.status_code in (401, 403):
@@ -219,6 +308,43 @@ def _call_live(body: dict) -> tuple[dict | None, str]:
         return r.json(), "ok"
     except ValueError:
         return None, "response was not JSON"
+
+
+def _call_live(body: dict) -> tuple[dict | None, str]:
+    url, key = _configured()
+    if not url or not key:
+        return None, _not_configured_reason(url, key)
+    _throttle()
+    try:
+        r = requests.post(
+            url + ENDPOINT_PATH,
+            headers=_headers(key),
+            json=body,
+            timeout=REQUEST_TIMEOUT_S,
+        )
+    except requests.RequestException as e:
+        return None, f"unreachable: {type(e).__name__}"
+    return _classify(r)
+
+
+def fetch_ev_models() -> tuple[dict | list | None, str]:
+    """
+    GET /api/ev-models, the list of vehicles EVRange knows and their evSpecIds.
+
+    The response shape was not documented, so this returns whatever JSON comes
+    back and leaves interpretation to the caller. Used by
+    scripts/fetch_evrange_cache.py --list-models, not by the dashboard.
+    """
+    url, key = _configured()
+    if not url or not key:
+        return None, _not_configured_reason(url, key)
+    _throttle()
+    try:
+        r = requests.get(url + MODELS_PATH, headers=_headers(key),
+                         timeout=REQUEST_TIMEOUT_S)
+    except requests.RequestException as e:
+        return None, f"unreachable: {type(e).__name__}"
+    return _classify(r)
 
 
 def _stub(body: dict) -> dict:
@@ -237,11 +363,12 @@ def _stub(body: dict) -> dict:
     dy = (lat2 - lat1) * 110.57
     straight_km = (dx * dx + dy * dy) ** 0.5
     distance_km = round(straight_km * 1.35, 1)          # crude road factor
-    if body.get("returnTrip"):
-        distance_km = round(distance_km * 2, 1)
     avg_whkm = 150.0
     usable_kwh = 60.0
-    soc_needed = round(distance_km * avg_whkm / 1000.0 / usable_kwh * 100.0, 1)
+    # Same convention as the live API, checked 16 September 2026: distanceKm
+    # and avgWhkm are per direction, socNeededPct covers the round trip.
+    legs = 2 if body.get("returnTrip") else 1
+    soc_needed = round(legs * distance_km * avg_whkm / 1000.0 / usable_kwh * 100.0, 1)
     return {
         "evModel": "STUB, not a real vehicle",
         "batteryUsableKwh": usable_kwh,
@@ -316,6 +443,7 @@ def cache_status() -> dict:
     entries = sorted(CACHE_DIR.glob("*.json"))
     return {
         "configured": bool(url and key),
+        "url": url,
         "url_set": bool(url),
         "key_set": bool(key),
         "cached_routes": len(entries),

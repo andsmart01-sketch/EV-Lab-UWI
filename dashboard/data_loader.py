@@ -1,14 +1,56 @@
 import pandas as pd
 from pathlib import Path
 
-def load_fuel_prices():
-    raw_dir = Path(__file__).parent.parent / "data" / "raw"
-    candidates = sorted(raw_dir.glob("Fuel_Prices*.xlsx"))
-    if not candidates:
-        raise FileNotFoundError("No Fuel_Prices xlsx found in data/raw/")
-    xlsx_path = candidates[-1]
+# Which file the price series was last read from. Read this after calling
+# load_fuel_prices() so a log line can name the file rather than leaving the
+# workbook and the fallback CSV indistinguishable.
+LAST_PRICE_SOURCE = "not loaded"
 
-    df = pd.read_excel(xlsx_path)
+
+def load_fuel_prices():
+    """
+    The weekly Petrojam price series.
+
+    Two sources, in order of preference:
+
+      1. data/raw/Fuel_Prices*.xlsx, the system of record. Written only by
+         scripts/add_prices.py, and NOT tracked by git, because .gitignore
+         excludes *.xlsx so that raw institutional data stays out of the
+         repository.
+      2. data/processed/fuel_prices.csv, which IS tracked, and which
+         add_prices.py regenerates from the workbook on every run.
+
+    The fallback exists because of what (1) implies: a clean clone contains
+    the CSV and not the workbook, so without it the dashboard raises
+    FileNotFoundError at import on any machine that is not the laptop the
+    workbook lives on. That includes the UWI server.
+
+    Both files carry the same four columns and the same rows. If they ever
+    disagree, the workbook is correct and the CSV needs regenerating.
+    """
+    global LAST_PRICE_SOURCE
+    data_dir = Path(__file__).resolve().parent.parent / "data"
+
+    # add_prices.py writes timestamped backups beside the workbook. Excluding
+    # them here means the choice does not depend on how they happen to sort.
+    candidates = sorted(p for p in (data_dir / "raw").glob("Fuel_Prices*.xlsx")
+                        if "backup-" not in p.name)
+
+    if candidates:
+        xlsx_path = candidates[-1]
+        df = pd.read_excel(xlsx_path)
+        LAST_PRICE_SOURCE = f"workbook data/raw/{xlsx_path.name}"
+    else:
+        csv_path = data_dir / "processed" / "fuel_prices.csv"
+        if not csv_path.exists():
+            raise FileNotFoundError(
+                "No price series found. Expected a workbook matching "
+                f"{data_dir / 'raw'}/Fuel_Prices*.xlsx, or the tracked CSV at "
+                f"{csv_path}. Neither is present."
+            )
+        df = pd.read_csv(csv_path)
+        LAST_PRICE_SOURCE = (f"tracked CSV data/processed/{csv_path.name}, "
+                             "no workbook on this machine")
     df["Date"] = pd.to_datetime(df["Date"], format="mixed", dayfirst=False, errors="coerce")
     df = df.dropna(subset=["Date"])
     df = df.sort_values("Date").reset_index(drop=True)

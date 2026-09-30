@@ -1,10 +1,25 @@
+import sys, os
+
+# Two directories have to be importable before anything below runs.
+#
+# data_loader, module7_policy, module_route, routes and route_costs are
+# imported by bare name, which only resolves when THIS directory is on
+# sys.path. That happens by accident when you run `python dashboard/app.py`,
+# and does not happen when a WSGI server imports `dashboard.app` from the repo
+# root, which is how this is deployed. Without the first insert that raises
+# ModuleNotFoundError: No module named 'data_loader' before Dash ever loads.
+#
+# abspath matters: os.path.dirname(__file__) is the empty string when the file
+# is run from inside its own directory.
+_HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, _HERE)
+sys.path.insert(0, os.path.join(_HERE, '..', 'data'))
+
 import dash
 from dash import dcc, html, Input, Output, State, ALL, MATCH
 from data_loader import load_fuel_prices, get_latest_prices, get_live_exchange_rate
 import plotly.express as px
 import plotly.graph_objects as go
-import sys, os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'data'))
 from vehicles import (ICE_VEHICLES, BEV_VEHICLES,
                       get_ice_dropdown_options, get_bev_dropdown_options,
                       MY_CAR_KEY, my_car_defaults, resolve_vehicle,
@@ -270,6 +285,11 @@ def serve_layout():
     dcc.Store(id="my-car-ice-store", data={}),
     dcc.Store(id="my-car-ev-store",  data={}),
 
+    # Output target for the scroll-to-top clientside callback below. Dash
+    # requires every callback to declare an Output, and that one has nothing
+    # real to write to, so it writes nowhere visible.
+    html.Div(id="scroll-anchor", style={"display": "none"}),
+
     html.Div([
 
         # Sidebar -- navigation
@@ -430,7 +450,8 @@ def serve_layout():
                 html.Div(cached_layout("m8", module8_layout),       id="content-tab-8"),
             ], id="tab-content", style={"padding": "0 32px 28px"}),
 
-        ], style={"flex": "1", "overflow": "auto", "backgroundColor": "var(--page-bg)"}),
+        ], id="main-scroll",
+           style={"flex": "1", "overflow": "auto", "backgroundColor": "var(--page-bg)"}),
 
     ], style={"display": "flex", "flex": "1", "overflow": "hidden"}),
 
@@ -443,6 +464,7 @@ USD_TO_JMD = get_live_exchange_rate(fallback=156.0)
 # hardcoded rate is visible rather than looking like a normal startup.
 import data_loader as _dl
 print(f"[startup] USD/JMD = {USD_TO_JMD:.4f}  (source: {_dl.LAST_RATE_SOURCE})")
+print(f"[startup] Fuel prices: {_dl.LAST_PRICE_SOURCE}, latest row {latest_prices['date']}")
 
 # ── Kingston retail markup data ──────────────────────────────────
 # Derived from field survey of 15 Kingston stations across 3 survey dates
@@ -2818,6 +2840,44 @@ def toggle_module_visibility(active_tab):
     ]
 
 
+# ── Scroll to top when the module changes ─────────────────────────
+#
+# window.scrollTo() does nothing here. The shell is height:100vh with
+# overflow:hidden and the only scrolling element is the content column, so
+# the window itself never has a scroll position to reset. #main-scroll is
+# that column.
+#
+# Every module lives in the DOM at once and toggle_module_visibility above
+# only flips display, so the scroll position is shared: leaving a long module
+# half way down and opening a short one used to drop you into the middle of
+# it, or past its end.
+#
+# Two animation frames rather than one. This callback and the visibility
+# toggle share an Input, so at the moment this fires the outgoing module can
+# still be display:block and the incoming one display:none. Writing scrollTop
+# then sets it against the old content height and the browser clamps it back
+# when the heights change. One frame waits for Dash to apply the styles, the
+# second for the reflow, and the write lands after both.
+#
+# Clicking the module you are already on does not fire this, because the store
+# value does not change. That is intentional.
+app.clientside_callback(
+    """
+    function(active_tab) {
+        var el = document.getElementById('main-scroll');
+        if (el) {
+            requestAnimationFrame(function () {
+                requestAnimationFrame(function () { el.scrollTop = 0; });
+            });
+        }
+        return window.dash_clientside.no_update;
+    }
+    """,
+    Output("scroll-anchor", "children"),
+    Input("active-tab-store", "data"),
+)
+
+
 def module5_layout():
     lbl = {"fontSize": "15px", "fontWeight": "600", "color": "#555",
            "marginBottom": "4px", "display": "block"}
@@ -4948,6 +5008,9 @@ def update_route_map(custom_start, custom_end, route_key, vehicle_key, soc,
         grid_intensity=renewable_pct_to_intensity(DEFAULT_RE_PCT),
         co2_per_litre=CO2_PER_LITRE_PETROL,
         return_trip=is_return,
+        # EVRange reports hasTolls as a boolean with no plaza, so the plaza
+        # comes from the preset definition where one is known.
+        toll_plaza=(route_data.resolve_route(route_key) or {}).get("toll_plaza"),
     )
     # The map and the numbers have separate provenance. A cached road shape can
     # be drawn while the costs beside it are still stub, so the banner tracks
@@ -4958,7 +5021,7 @@ def update_route_map(custom_start, custom_end, route_key, vehicle_key, soc,
                              (route_data.resolve_route(route_key) or {}).get("label", ""),
                              is_placeholder=is_ph),
             build_cards(leg, ev, ice, cmp_),
-            build_basis(ev, ice),
+            build_basis(ev, ice, result),
             note, "", quiet)
 
 

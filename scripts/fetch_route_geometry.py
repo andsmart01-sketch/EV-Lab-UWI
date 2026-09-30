@@ -80,6 +80,12 @@ def main(force: bool = False) -> int:
         cache = json.loads(OUT.read_text(encoding="utf-8")).get("routes", {})
 
     runs = route_data._runs_with_coords()
+    # Rohan's three corridors as well, so they draw as roads rather than
+    # straight lines when EVRange is down. They have no odometer distance of
+    # their own here, so the cross-check column is blank for them.
+    runs += [{"key": k, "label": v["label"], "start": v["start"],
+              "end": v["end"], "measured_km": None}
+             for k, v in route_data.MEASURED_ROUTES.items()]
     if not runs:
         print("No runs have coordinates yet. Fill in PLACES in "
               "dashboard/routes.py first.")
@@ -100,11 +106,16 @@ def main(force: bool = False) -> int:
         cache[key] = {**got, "label": r["label"],
                       "recorded_km": r["measured_km"]}
         fetched += 1
-        ratio = got["osrm_distance_km"] / r["measured_km"] if r["measured_km"] else 0
-        flag = "  <-- differs by more than 25%" if not 0.75 <= ratio <= 1.25 else ""
-        print(f"  ok      {key:<8} {r['label'][:40]:<40} "
-              f"recorded {r['measured_km']:>4.1f}  osrm {got['osrm_distance_km']:>5.2f}"
-              f"  ratio {ratio:>4.2f}  {got['points']:>4} pts{flag}")
+        if r["measured_km"]:
+            ratio = got["osrm_distance_km"] / r["measured_km"]
+            flag = "  <-- differs by more than 25%" if not 0.75 <= ratio <= 1.25 else ""
+            print(f"  ok      {key:<8} {r['label'][:40]:<40} "
+                  f"recorded {r['measured_km']:>4.1f}  osrm {got['osrm_distance_km']:>5.2f}"
+                  f"  ratio {ratio:>4.2f}  {got['points']:>4} pts{flag}")
+        else:
+            print(f"  ok      {key:<16} {r['label'][:32]:<32} "
+                  f"no odometer figure  osrm {got['osrm_distance_km']:>5.2f}"
+                  f"  {got['points']:>4} pts")
         time.sleep(PAUSE_S)
 
     OUT.write_text(json.dumps(
